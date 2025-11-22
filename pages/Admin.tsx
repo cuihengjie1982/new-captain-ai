@@ -40,6 +40,19 @@ const MODULE_OPTIONS = [
     { id: '通用', label: '通用/系统' }
 ];
 
+// --- Helper Functions ---
+const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>, callback: (content: string) => void) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        if (event.target?.result) {
+            callback(event.target.result as string);
+        }
+    };
+    reader.readAsText(file);
+};
+
 // --- Helper Components for KPI Editor ---
 
 const KPIEditor: React.FC<{ kpis: KPIItem[], onChange: (kpis: KPIItem[]) => void }> = ({ kpis, onChange }) => {
@@ -435,6 +448,15 @@ const Admin: React.FC = () => {
       if (type === 'video') setEditingLesson({ ...editingLesson, videoUrl: fakeUrl }); 
       else setEditingLesson({ ...editingLesson, thumbnail: fakeUrl }); 
   };
+  const generateMockTranscript = () => {
+      setIsGeneratingTranscript(true);
+      // Simulate AI processing
+      setTimeout(() => {
+          const mock = "0|大家好，欢迎来到本节课程。\n15|今天我们要讲的是关于核心指标的拆解。\n45|首先，让我们看一下数据模型。\n120|非常有意思的是，这个趋势展示了季节性变化。\n200|总结一下，关键在于持续监控和及时干预。";
+          setTranscriptText(mock);
+          setIsGeneratingTranscript(false);
+      }, 1500);
+  };
   
   // Knowledge Category
   const handleEditCategory = (cat: KnowledgeCategory | null) => { 
@@ -687,6 +709,7 @@ const Admin: React.FC = () => {
                                    <div><label className="text-xs font-bold text-slate-500">发布时间</label><input type="datetime-local" className="w-full border p-2 rounded text-sm" value={formatDateTimeForInput(editingBlog.date)} onChange={e => setEditingBlog({...editingBlog, date: formatDisplayDate(e.target.value)})}/></div>
                                    <div><label className="text-xs font-bold text-slate-500">适用用户</label><select className="w-full border p-2 rounded bg-white" value={editingBlog.requiredPlan || 'free'} onChange={e => setEditingBlog({...editingBlog, requiredPlan: e.target.value as 'free' | 'pro'})}><option value="free">免费用户</option><option value="pro">PRO 会员</option></select></div>
                                </div>
+                               <div><label className="text-xs font-bold text-slate-500">原文链接</label><input className="w-full border p-2 rounded" value={editingBlog.originalUrl || ''} onChange={e=>setEditingBlog({...editingBlog, originalUrl: e.target.value})} placeholder="https://..."/></div>
                                <div><label className="text-xs font-bold text-slate-500">标签</label><input className="w-full border p-2 rounded" value={editingBlog.tags?.join(', ') || ''} onChange={e=>setEditingBlog({...editingBlog, tags: e.target.value.split(',').map(s=>s.trim())})}/></div>
                            </div>
                            <div className="border rounded-lg p-4 bg-slate-50">
@@ -696,7 +719,13 @@ const Admin: React.FC = () => {
                            </div>
                        </div>
                        <div className="flex flex-col h-full">
-                          <label className="text-xs font-bold text-slate-500 mb-1">文章正文</label>
+                          <div className="flex justify-between items-center mb-1">
+                              <label className="text-xs font-bold text-slate-500">文章正文</label>
+                              <label className="text-xs text-blue-600 cursor-pointer hover:underline flex items-center gap-1">
+                                  <Import size={12} /> 导入文件
+                                  <input type="file" className="hidden" accept=".md,.txt,.html,.doc,.docx" onChange={(e) => handleFileImport(e, (txt) => setEditingBlog({...editingBlog, content: txt}))}/>
+                              </label>
+                          </div>
                           <textarea className="w-full border p-4 rounded-lg h-64 font-mono text-sm leading-relaxed" value={editingBlog.content} onChange={e=>setEditingBlog({...editingBlog, content: e.target.value})}/>
                        </div>
                     </div>
@@ -756,8 +785,34 @@ const Admin: React.FC = () => {
                                    <div><label className="text-xs font-bold text-slate-500 mb-1 block">课程分类</label><input className="w-full border p-2 rounded" value={editingLesson.category} onChange={e=>setEditingLesson({...editingLesson, category: e.target.value})}/></div>
                                    <div><label className="text-xs font-bold text-slate-500 mb-1 block">适用用户</label><select className="w-full border p-2 rounded bg-white" value={editingLesson.requiredPlan || 'free'} onChange={e => setEditingLesson({...editingLesson, requiredPlan: e.target.value as 'free' | 'pro'})}><option value="free">免费用户</option><option value="pro">PRO 会员</option></select></div>
                                </div>
-                               <div><label className="text-xs font-bold text-slate-500 mb-1 block">视频链接</label><input className="w-full border p-2 rounded" value={editingLesson.videoUrl} onChange={e=>setEditingLesson({...editingLesson, videoUrl: e.target.value})}/></div>
-                               <div><label className="text-xs font-bold text-slate-500 mb-1 block">逐字稿</label><textarea className="w-full border p-3 rounded h-40 font-mono text-sm bg-slate-50" value={transcriptText} onChange={e => setTranscriptText(e.target.value)}/></div>
+                               <div className="border p-4 rounded-lg bg-slate-50">
+                                    <label className="text-xs font-bold text-slate-500 mb-2 block">视频源 (二选一)</label>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <div className="text-xs text-slate-500 mb-1">方式A: 外部链接</div>
+                                            <input className="w-full border p-2 rounded text-sm" value={editingLesson.videoUrl?.startsWith('blob:') ? '' : editingLesson.videoUrl} onChange={e=>setEditingLesson({...editingLesson, videoUrl: e.target.value})} placeholder="输入 https://..."/>
+                                        </div>
+                                        <div className="text-center text-xs text-slate-400">- 或 -</div>
+                                        <div>
+                                            <div className="text-xs text-slate-500 mb-1">方式B: 本地上传</div>
+                                            <label className="block w-full p-2 border border-dashed bg-white text-center text-sm text-blue-600 cursor-pointer hover:bg-blue-50 rounded">
+                                                选择视频文件
+                                                <input type="file" className="hidden" accept="video/*" onChange={(e) => handleLessonFileUpload(e, 'video')} />
+                                            </label>
+                                            {editingLesson.videoUrl?.startsWith('blob:') && <div className="text-[10px] text-green-600 mt-1">已选择本地文件</div>}
+                                        </div>
+                                    </div>
+                               </div>
+                               <div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="text-xs font-bold text-slate-500 block">逐字稿</label>
+                                        <button onClick={generateMockTranscript} disabled={isGeneratingTranscript} className="text-xs text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded">
+                                            {isGeneratingTranscript ? <Loader2 size={12} className="animate-spin"/> : <Sparkles size={12}/>} 
+                                            AI解析生成
+                                        </button>
+                                    </div>
+                                    <textarea className="w-full border p-3 rounded h-40 font-mono text-sm bg-slate-50" value={transcriptText} onChange={e => setTranscriptText(e.target.value)}/>
+                               </div>
                             </div>
                             <div className="space-y-5">
                                 <div className="border p-4 rounded-lg bg-slate-50"><label className="text-xs font-bold text-slate-500 mb-2 block">封面</label><div className="aspect-video bg-slate-200 rounded mb-2 overflow-hidden"><img src={editingLesson.thumbnail} className="w-full h-full object-cover"/></div><label className="block w-full text-center p-2 border border-dashed bg-white text-xs text-blue-600 cursor-pointer rounded">上传<input type="file" className="hidden" accept="image/*" onChange={(e) => handleLessonFileUpload(e, 'image')}/></label></div>
@@ -860,7 +915,39 @@ const Admin: React.FC = () => {
                              <div className="space-y-5">
                                  <div><label className="block text-xs font-bold text-slate-500 mb-1">项目名称</label><input className="w-full border p-2 rounded" value={editingProject.name} onChange={e=>setEditingProject({...editingProject, name: e.target.value})}/></div>
                                  <div><label className="block text-xs font-bold text-slate-500 mb-1">适用用户</label><select className="w-full border p-2 rounded bg-white" value={editingProject.requiredPlan || 'free'} onChange={e => setEditingProject({...editingProject, requiredPlan: e.target.value as 'free' | 'pro'})}><option value="free">免费用户</option><option value="pro">PRO 会员</option></select></div>
-                                 <div><label className="block text-xs font-bold text-slate-500">项目报告 (HTML)</label><textarea className="w-full border p-3 rounded h-40 font-mono text-sm" value={editingProject.content} onChange={e=>setEditingProject({...editingProject, content: e.target.value})}/></div>
+                                 <div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="block text-xs font-bold text-slate-500">项目报告 (HTML)</label>
+                                        <label className="text-xs text-blue-600 cursor-pointer hover:underline flex items-center gap-1">
+                                            <Import size={12} /> 导入报告
+                                            <input type="file" className="hidden" accept=".md,.txt,.html" onChange={(e) => handleFileImport(e, (txt) => setEditingProject({...editingProject, content: txt}))}/>
+                                        </label>
+                                    </div>
+                                    <textarea className="w-full border p-3 rounded h-40 font-mono text-sm" value={editingProject.content} onChange={e=>setEditingProject({...editingProject, content: e.target.value})}/>
+                                 </div>
+                                 
+                                 <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 mb-1 block">详细行动计划</label>
+                                        <div className="flex gap-2">
+                                            <input className="w-full border p-2 rounded text-sm bg-slate-50" value={editingProject.actionPlanFile || ''} readOnly placeholder="未上传"/>
+                                            <label className="bg-slate-100 px-3 py-2 rounded cursor-pointer hover:bg-slate-200 border border-slate-200 flex items-center justify-center">
+                                                <Upload size={16} className="text-slate-600"/>
+                                                <input type="file" className="hidden" onChange={(e) => setEditingProject({...editingProject, actionPlanFile: e.target.files?.[0]?.name || ''})}/>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 mb-1 block">历史会议记录</label>
+                                        <div className="flex gap-2">
+                                            <input className="w-full border p-2 rounded text-sm bg-slate-50" value={editingProject.meetingRecordFile || ''} readOnly placeholder="未上传"/>
+                                            <label className="bg-slate-100 px-3 py-2 rounded cursor-pointer hover:bg-slate-200 border border-slate-200 flex items-center justify-center">
+                                                <Upload size={16} className="text-slate-600"/>
+                                                <input type="file" className="hidden" onChange={(e) => setEditingProject({...editingProject, meetingRecordFile: e.target.files?.[0]?.name || ''})}/>
+                                            </label>
+                                        </div>
+                                    </div>
+                                 </div>
                              </div>
                              <div className="space-y-6">
                                  <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">

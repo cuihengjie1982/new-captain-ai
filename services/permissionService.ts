@@ -5,10 +5,10 @@ const CONFIG_KEY = 'captain_permission_config';
 const DEFINITIONS_KEY = 'captain_permission_definitions';
 
 const DEFAULT_DEFINITIONS: PermissionDefinition[] = [
-  { key: 'download_resources', label: '下载专业资源/报告' },
-  { key: 'expert_diagnosis', label: '使用专家人工诊断' },
-  { key: 'export_transcript', label: '导出课程字幕/文稿' },
-  { key: 'advanced_analytics', label: '查看高级数据分析' }
+  { key: 'download_resources', label: '下载专业资源/报告', module: '知识库' },
+  { key: 'expert_diagnosis', label: '使用专家人工诊断', module: '诊断罗盘' },
+  { key: 'export_transcript', label: '导出课程字幕/文稿', module: '解决方案' },
+  { key: 'advanced_analytics', label: '查看高级数据分析', module: '指挥中心' }
 ];
 
 const DEFAULT_CONFIG: PermissionConfig = {

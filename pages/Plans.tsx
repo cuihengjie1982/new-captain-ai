@@ -1,23 +1,45 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AppRoute, User } from '../types';
-import { Video, FileText, Settings, Zap, Check, ArrowUpRight, X, QrCode, CheckCircle, Loader2 } from 'lucide-react';
-import { getPaymentQRCode } from '../services/contentService';
-import { updateUserPlan } from '../services/userDataService';
+import { AppRoute, User, BusinessContactInfo } from '../types';
+import { Video, FileText, Settings, Zap, Check, ArrowUpRight, X, QrCode, Mail, Phone, User as UserIcon, Building2, Smartphone, Briefcase, Image } from 'lucide-react';
+import { getPaymentQRCode, getBusinessContactInfo } from '../services/contentService';
+import { saveBusinessLead } from '../services/userDataService';
 
 const Plans: React.FC = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [qrCode, setQrCode] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success'>('idle');
+  const [businessInfo, setBusinessInfo] = useState<BusinessContactInfo | null>(null);
+  
+  // Form State
+  const [contactForm, setContactForm] = useState({ name: '', position: '', company: '', phone: '', email: '' });
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('captainUser');
-    if (stored) setUser(JSON.parse(stored));
+    if (stored) {
+        const u = JSON.parse(stored);
+        setUser(u);
+        // Pre-fill form if user data exists
+        setContactForm(prev => ({
+            ...prev,
+            name: u.name || '',
+            email: u.email || '',
+            phone: u.phone || ''
+        }));
+    }
     setQrCode(getPaymentQRCode());
+    setBusinessInfo(getBusinessContactInfo());
   }, []);
+
+  // Reset form state when modal closes
+  useEffect(() => {
+      if(!showContactModal) {
+          setIsSubmitted(false);
+      }
+  }, [showContactModal]);
 
   const handleUpgrade = () => {
     if (!user) {
@@ -25,31 +47,27 @@ const Plans: React.FC = () => {
       navigate(AppRoute.LOGIN);
       return;
     }
-    setShowPaymentModal(true);
+    setShowContactModal(true);
   };
 
-  const simulatePaymentSuccess = () => {
-    setPaymentStatus('processing');
-    
-    // Simulate network delay
-    setTimeout(() => {
-      if (user) {
-        updateUserPlan(user.id, 'pro');
-        
-        // Update local state immediately
-        const updatedUser = { ...user, plan: 'pro' as const };
-        localStorage.setItem('captainUser', JSON.stringify(updatedUser));
-        setUser(updatedUser);
-        
-        setPaymentStatus('success');
-        
-        setTimeout(() => {
-          setShowPaymentModal(false);
-          alert('恭喜！您已成功升级为 PRO 会员');
-          navigate(AppRoute.MY_VIDEOS);
-        }, 1500);
-      }
-    }, 2000);
+  const handleSubmitForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactForm.name || !contactForm.phone || !contactForm.company || !contactForm.email || !contactForm.position) {
+        return; // HTML5 validation handles display, this is a safeguard
+    }
+
+    saveBusinessLead({
+        id: Date.now().toString(),
+        name: contactForm.name,
+        position: contactForm.position,
+        company: contactForm.company,
+        phone: contactForm.phone,
+        email: contactForm.email,
+        submittedAt: new Date().toLocaleString('zh-CN'),
+        status: 'new'
+    });
+
+    setIsSubmitted(true);
   };
 
   return (
@@ -84,8 +102,8 @@ const Plans: React.FC = () => {
             <h3 className="text-2xl font-bold text-slate-900 mb-6">免费版</h3>
             
             <div className="mb-8">
-               <h2 className="text-4xl font-bold text-slate-900 mb-2">¥0</h2>
-               <p className="text-slate-500 text-sm">永久免费，适合个人学习</p>
+               <h2 className="text-4xl font-bold text-slate-900 mb-2">免费</h2>
+               <p className="text-slate-500 text-sm">适合个人学习与体验</p>
             </div>
 
             <ul className="space-y-4 mb-8 flex-1">
@@ -116,9 +134,9 @@ const Plans: React.FC = () => {
             
             <div className="mb-8">
                <div className="flex items-baseline gap-2">
-                  <h2 className="text-4xl font-bold text-slate-900">¥199</h2>
-                  <span className="text-slate-500">/ 年</span>
+                  <h2 className="text-2xl font-bold text-slate-900">企业级权限</h2>
                </div>
+               <p className="text-slate-500 text-sm mt-2">请联系商务开通</p>
             </div>
 
             <ul className="space-y-4 mb-8 flex-1">
@@ -146,60 +164,160 @@ const Plans: React.FC = () => {
                disabled={user?.plan === 'pro'}
                className={`w-full py-3 rounded-xl font-bold transition-colors shadow-lg ${user?.plan === 'pro' ? 'bg-green-500 text-white shadow-green-200' : 'bg-slate-900 text-white hover:bg-black shadow-slate-900/20'}`}
             >
-               {user?.plan === 'pro' ? '已激活 PRO 会员' : '立即升级'}
+               {user?.plan === 'pro' ? '已激活 PRO 会员' : '联系商务升级'}
             </button>
          </div>
       </div>
 
-      {/* Payment Modal */}
-      {showPaymentModal && (
+      {/* Contact Modal - Redesigned Side-by-Side */}
+      {showContactModal && businessInfo && (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95">
-                <div className="p-4 border-b flex justify-between items-center">
-                    <h3 className="font-bold text-slate-900">升级支付</h3>
-                    <button onClick={() => setShowPaymentModal(false)} className="p-1 hover:bg-slate-100 rounded-full"><X size={20} /></button>
-                </div>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 relative transition-all flex flex-col md:flex-row">
                 
-                <div className="p-8 flex flex-col items-center text-center">
-                    {paymentStatus === 'success' ? (
-                        <div className="py-8 flex flex-col items-center animate-in zoom-in">
-                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4">
-                                <CheckCircle size={48} />
-                            </div>
-                            <h3 className="text-xl font-bold text-slate-900 mb-2">支付成功！</h3>
-                            <p className="text-slate-500">正在为您配置 PRO 权益...</p>
-                        </div>
-                    ) : paymentStatus === 'processing' ? (
-                        <div className="py-8 flex flex-col items-center">
-                            <Loader2 size={48} className="text-blue-600 animate-spin mb-4" />
-                            <p className="text-slate-500 font-bold">正在确认支付结果...</p>
-                        </div>
-                    ) : (
-                        <>
-                            <p className="text-sm text-slate-500 mb-4">请使用微信或支付宝扫码支付</p>
-                            <div className="bg-white p-2 border border-slate-200 rounded-xl shadow-inner mb-6">
+                {/* Close Button (Absolute) */}
+                <button onClick={() => setShowContactModal(false)} className="absolute top-4 right-4 p-1 hover:bg-slate-100 rounded-full z-10"><X size={20} /></button>
+
+                {/* Left Side: Form */}
+                <div className="w-full md:w-1/2 p-8 flex flex-col">
+                   <h3 className="font-bold text-xl text-slate-900 mb-6">{isSubmitted ? '提交成功' : '填写联系信息'}</h3>
+                   
+                   {!isSubmitted ? (
+                       <form onSubmit={handleSubmitForm} className="space-y-4 flex-1">
+                           <p className="text-sm text-slate-500 mb-6">
+                              请填写您的真实信息，所有字段均为必填。提交后即可获取商务经理二维码。
+                           </p>
+
+                           <div>
+                               <label className="block text-xs font-bold text-slate-500 mb-1">您的姓名 <span className="text-red-500">*</span></label>
+                               <div className="relative">
+                                   <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                   <input 
+                                       type="text" 
+                                       required
+                                       value={contactForm.name}
+                                       onChange={e => setContactForm({...contactForm, name: e.target.value})}
+                                       className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                       placeholder="请输入姓名"
+                                   />
+                               </div>
+                           </div>
+
+                           <div>
+                               <label className="block text-xs font-bold text-slate-500 mb-1">职位头衔 <span className="text-red-500">*</span></label>
+                               <div className="relative">
+                                   <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                   <input 
+                                       type="text" 
+                                       required
+                                       value={contactForm.position}
+                                       onChange={e => setContactForm({...contactForm, position: e.target.value})}
+                                       className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                       placeholder="例如：运营总监"
+                                   />
+                               </div>
+                           </div>
+
+                           <div>
+                               <label className="block text-xs font-bold text-slate-500 mb-1">公司名称 <span className="text-red-500">*</span></label>
+                               <div className="relative">
+                                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                   <input 
+                                       type="text" 
+                                       required
+                                       value={contactForm.company}
+                                       onChange={e => setContactForm({...contactForm, company: e.target.value})}
+                                       className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                       placeholder="请输入公司名称"
+                                   />
+                               </div>
+                           </div>
+
+                           <div>
+                               <label className="block text-xs font-bold text-slate-500 mb-1">手机号码 <span className="text-red-500">*</span></label>
+                               <div className="relative">
+                                   <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                   <input 
+                                       type="tel" 
+                                       required
+                                       value={contactForm.phone}
+                                       onChange={e => setContactForm({...contactForm, phone: e.target.value})}
+                                       className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                       placeholder="请输入手机号"
+                                   />
+                               </div>
+                           </div>
+
+                           <div>
+                               <label className="block text-xs font-bold text-slate-500 mb-1">公司邮箱 <span className="text-red-500">*</span></label>
+                               <div className="relative">
+                                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                   <input 
+                                       type="email" 
+                                       required
+                                       value={contactForm.email}
+                                       onChange={e => setContactForm({...contactForm, email: e.target.value})}
+                                       className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                       placeholder="name@company.com"
+                                   />
+                               </div>
+                           </div>
+
+                           <button 
+                               type="submit"
+                               className="w-full mt-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
+                           >
+                               提交并获取联系方式
+                           </button>
+                       </form>
+                   ) : (
+                       <div className="flex flex-col items-center justify-center h-full text-center py-10">
+                           <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
+                               <Check size={32} />
+                           </div>
+                           <h4 className="text-xl font-bold text-slate-900 mb-2">提交成功</h4>
+                           <p className="text-slate-500 mb-8">
+                               请查看右侧添加商务经理微信，备注“升级咨询”。
+                           </p>
+                           <button 
+                               onClick={() => setShowContactModal(false)}
+                               className="w-full py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors"
+                           >
+                               关闭窗口
+                           </button>
+                       </div>
+                   )}
+                </div>
+
+                {/* Right Side: QR Code Area */}
+                <div className="w-full md:w-1/2 bg-slate-50 border-l border-slate-100 p-8 flex flex-col items-center justify-center text-center relative">
+                    {isSubmitted ? (
+                        <div className="animate-in zoom-in duration-500">
+                            <div className="bg-white p-4 rounded-2xl shadow-lg border border-slate-200 mb-6">
                                 {qrCode ? (
-                                    <img src={qrCode} alt="Payment QR" className="w-48 h-48 object-contain" />
+                                    <img src={qrCode} alt="Business QR" className="w-48 h-48 object-contain" />
                                 ) : (
                                     <div className="w-48 h-48 bg-slate-100 flex flex-col items-center justify-center text-slate-400 rounded-lg">
                                         <QrCode size={48} className="mb-2 opacity-50" />
-                                        <span className="text-xs">暂未配置收款码</span>
-                                        <span className="text-[10px]">(请联系管理员)</span>
+                                        <span className="text-xs">暂未配置二维码</span>
                                     </div>
                                 )}
                             </div>
-                            <div className="w-full">
-                                <div className="text-2xl font-bold text-slate-900 mb-6">¥199.00</div>
-                                <button 
-                                    onClick={simulatePaymentSuccess}
-                                    className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/30"
-                                >
-                                    我已完成支付
-                                </button>
+                            <div className="space-y-2">
+                                <h4 className="font-bold text-slate-900 text-lg">扫码添加商务</h4>
+                                <p className="text-sm text-slate-500">专属顾问：{businessInfo.contactPerson}</p>
+                                <p className="text-sm text-slate-500">微信号：{businessInfo.contactMethod}</p>
                             </div>
-                        </>
+                        </div>
+                    ) : (
+                        <div className="opacity-50">
+                            <div className="w-48 h-48 bg-slate-200 rounded-2xl mb-6 mx-auto flex items-center justify-center">
+                                <Image size={48} className="text-slate-400" />
+                            </div>
+                            <p className="text-slate-400 font-medium">提交表单后显示二维码</p>
+                        </div>
                     )}
                 </div>
+
             </div>
         </div>
       )}

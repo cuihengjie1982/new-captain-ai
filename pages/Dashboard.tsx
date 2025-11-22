@@ -24,6 +24,23 @@ interface AggregatedRecord {
   rawDate: string; // For sorting/matching
 }
 
+// Helper to parse flexible period strings
+const parsePeriod = (period: string) => {
+    const p = period.toUpperCase();
+    if (p.includes('-Q')) {
+        const [year, q] = p.split('-Q');
+        return { year: parseInt(year), sub: parseInt(q), type: 'Quarter', sortKey: `${year}-Q${q}` };
+    } else if (p.includes('-H')) {
+        const [year, h] = p.split('-H');
+        return { year: parseInt(year), sub: parseInt(h), type: 'HalfYear', sortKey: `${year}-H${h}` };
+    } else if (p.includes('-')) {
+        const [year, m] = p.split('-');
+        return { year: parseInt(year), sub: parseInt(m), type: 'Month', sortKey: `${year}-${m.padStart(2, '0')}` };
+    } else {
+        return { year: parseInt(p), sub: 0, type: 'Year', sortKey: `${p}` };
+    }
+};
+
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<DashboardProject[]>([]);
@@ -68,45 +85,56 @@ const Dashboard: React.FC = () => {
       const project = projects.find(p => p.id === selectedProjectId) || projects[0];
       setCurrentData(project);
       setSelectedKpiIndex(0);
-      // Reset Granularity based on KPI default if needed, or keep 'Month'
-      setGranularity('Month');
+      // Reset Granularity to KPI default
+      if (project.kpis[0]) {
+          setGranularity(project.kpis[0].timeWindow || 'Month');
+      }
     }
   }, [selectedProjectId, projects]);
 
-  // --- Aggregation Logic ---
+  // When changing KPI index, update Granularity to match KPI default
+  useEffect(() => {
+      if (currentData?.kpis[selectedKpiIndex]) {
+          setGranularity(currentData.kpis[selectedKpiIndex].timeWindow || 'Month');
+      }
+  }, [selectedKpiIndex, currentData]);
+
+  // --- Aggregation Logic (Enhanced) ---
   const aggregatedData = useMemo<AggregatedRecord[]>(() => {
     if (!currentData) return [];
     const kpi = currentData.kpis[selectedKpiIndex];
     if (!kpi || !kpi.chartData) return [];
 
-    const rawData = kpi.chartData; // Assuming YYYY-MM strings
+    const rawData = kpi.chartData; 
     const aggregationType = kpi.aggregation || 'avg';
 
     const grouped: Record<string, number[]> = {};
 
     rawData.forEach(item => {
-      const [year, month] = item.month.split('-');
+      const parsed = parsePeriod(item.month);
       let key = '';
 
-      switch (granularity) {
-        case 'Month':
-          key = item.month; // "2024-05"
-          break;
-        case 'Quarter':
-          const q = Math.ceil(parseInt(month) / 3);
-          key = `${year}-Q${q}`;
-          break;
-        case 'HalfYear':
-          const h = parseInt(month) <= 6 ? 'H1' : 'H2';
-          key = `${year}-${h}`;
-          break;
-        case 'Year':
-          key = year;
-          break;
+      // Logic: Can only aggregate UP (finer -> coarser). Cannot split DOWN.
+      // If data is coarser than view (e.g. data is Year, view is Month), ignore or put in a special bucket?
+      // For simplicity, we only include data that can map to the current view.
+
+      if (granularity === 'Month') {
+          if (parsed.type === 'Month') key = item.month;
+      } else if (granularity === 'Quarter') {
+          if (parsed.type === 'Quarter') key = item.month;
+          else if (parsed.type === 'Month') key = `${parsed.year}-Q${Math.ceil(parsed.sub / 3)}`;
+      } else if (granularity === 'HalfYear') {
+          if (parsed.type === 'HalfYear') key = item.month;
+          else if (parsed.type === 'Quarter') key = `${parsed.year}-H${parsed.sub <= 2 ? 1 : 2}`;
+          else if (parsed.type === 'Month') key = `${parsed.year}-H${parsed.sub <= 6 ? 1 : 2}`;
+      } else if (granularity === 'Year') {
+          key = `${parsed.year}`;
       }
 
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(item.value);
+      if (key) {
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(item.value);
+      }
     });
 
     // Compute aggregated values
@@ -118,11 +146,13 @@ const Dashboard: React.FC = () => {
       } else {
         val = values.reduce((a, b) => a + b, 0) / values.length;
       }
-      // Round to 1 decimal for display
+      // Helper for sorting
+      const sortParsed = parsePeriod(key);
+      
       return {
         label: key,
         value: parseFloat(val.toFixed(1)),
-        rawDate: key
+        rawDate: sortParsed.sortKey
       };
     }).sort((a, b) => a.rawDate.localeCompare(b.rawDate));
 
@@ -269,215 +299,231 @@ const Dashboard: React.FC = () => {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1">
+      <div className="space-y-8">
         
-        {/* LEFT: Report & Charts */}
-        <div className="lg:col-span-2 space-y-6">
-           
-           {/* Comparison & Chart Card */}
-           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              {/* KPI Selector Tabs */}
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2 overflow-x-auto">
-                 <BarChart3 size={18} className="text-blue-600 flex-shrink-0" />
-                 <div className="flex gap-2">
-                    {currentData.kpis.map((kpi, idx) => (
-                        <button 
-                            key={kpi.id}
-                            onClick={() => setSelectedKpiIndex(idx)}
-                            className={`text-sm px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap font-medium ${selectedKpiIndex === idx ? 'bg-slate-900 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                        >
-                            {kpi.label}
-                        </button>
-                    ))}
-                 </div>
-              </div>
-
-              <div className="p-6">
-                 {/* Granularity Tabs */}
-                 <div className="flex justify-center mb-8">
-                    <div className="bg-slate-100 p-1 rounded-xl inline-flex">
-                       {(['Month', 'Quarter', 'HalfYear', 'Year'] as TimeGranularity[]).map((g) => (
-                          <button
-                             key={g}
-                             onClick={() => setGranularity(g)}
-                             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${granularity === g ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                          >
-                             {g === 'Month' ? '月度' : g === 'Quarter' ? '季度' : g === 'HalfYear' ? '半年度' : '年度'}
-                          </button>
-                       ))}
-                    </div>
-                 </div>
-
-                 {/* Comparison Tool */}
-                 <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-8 items-center">
-                    {/* Left Side: Period A */}
-                    <div className="md:col-span-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <div className="flex justify-between mb-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase">当前周期</span>
-                            <select 
-                               value={compareA}
-                               onChange={(e) => setCompareA(e.target.value)}
-                               className="text-xs bg-white border border-slate-200 rounded px-2 py-0.5 outline-none focus:border-blue-500"
-                            >
-                                {aggregatedData.map(d => <option key={d.label} value={d.label}>{d.label}</option>)}
-                            </select>
-                        </div>
-                        <div className="text-2xl font-bold text-slate-900 flex items-baseline gap-1">
-                            {valA} <span className="text-sm font-normal text-slate-400">{currentKpi.unit}</span>
-                        </div>
-                    </div>
-
-                    {/* Middle: Delta */}
-                    <div className="md:col-span-1 flex flex-col items-center justify-center">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-1 ${deltaBg}`}>
-                            {isImproved ? <ArrowUpRight size={20} className="text-green-600" /> : <ArrowDownRight size={20} className="text-red-600" />}
-                        </div>
-                        <span className={`text-xs font-bold ${deltaColor}`}>
-                            {delta > 0 ? '+' : ''}{delta.toFixed(1)}
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                           ({percentChange.toFixed(1)}%)
-                        </span>
-                    </div>
-
-                    {/* Right Side: Period B */}
-                    <div className="md:col-span-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <div className="flex justify-between mb-2">
-                            <span className="text-xs font-bold text-slate-500 uppercase">对比周期</span>
-                            <select 
-                               value={compareB}
-                               onChange={(e) => setCompareB(e.target.value)}
-                               className="text-xs bg-white border border-slate-200 rounded px-2 py-0.5 outline-none focus:border-blue-500"
-                            >
-                                {aggregatedData.map(d => <option key={d.label} value={d.label}>{d.label}</option>)}
-                            </select>
-                        </div>
-                        <div className="text-2xl font-bold text-slate-900 flex items-baseline gap-1">
-                            {valB} <span className="text-sm font-normal text-slate-400">{currentKpi.unit}</span>
-                        </div>
-                    </div>
-                 </div>
-
-                 {/* Chart Area */}
-                 <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={aggregatedData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                        <defs>
-                            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
-                            <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis 
-                            dataKey="label" 
-                            stroke="#94a3b8" 
-                            tickLine={false} 
-                            axisLine={false} 
-                            dy={10}
-                            fontSize={11}
-                        />
-                        <YAxis 
-                            stroke="#94a3b8" 
-                            tickLine={false} 
-                            axisLine={false} 
-                            dx={-10}
-                            fontSize={11}
-                            domain={['auto', 'auto']}
-                        />
-                        <Tooltip 
-                            contentStyle={{ backgroundColor: '#1e293b', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px' }}
-                            itemStyle={{ color: '#fff' }}
-                            cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }}
-                        />
-                        <Area 
-                            type="monotone" 
-                            dataKey="value" 
-                            stroke="#2563eb" 
-                            strokeWidth={3} 
-                            fillOpacity={1} 
-                            fill="url(#colorValue)" 
-                            activeDot={{ r: 6, strokeWidth: 0 }}
-                        />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                 </div>
-              </div>
-           </div>
-
-           {/* Project Briefing */}
-           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center gap-2">
-                 <FileText size={18} className="text-blue-600" />
-                 <h2 className="font-bold text-slate-800">项目改善报告</h2>
-              </div>
-              <div className="p-6 md:p-8">
-                <div 
-                  className="prose prose-slate prose-sm md:prose-base max-w-none"
-                  dangerouslySetInnerHTML={{ __html: currentData.content }}
-                />
-                <div className="mt-8 flex flex-wrap gap-3">
-                   <button 
-                     onClick={() => handleDownload(currentData.actionPlanFile, '详细行动计划')}
-                     className="px-4 py-2.5 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-lg shadow-slate-900/20 active:transform active:scale-95"
-                   >
-                      {hasPermission(currentUser, 'download_resources') ? <Download size={16} /> : <Lock size={16} />}
-                      下载详细行动计划
-                   </button>
-                   <button 
-                     onClick={() => handleDownload(currentData.meetingRecordFile, '历史会议记录')}
-                     className="px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors flex items-center gap-2 active:transform active:scale-95"
-                   >
-                      {hasPermission(currentUser, 'download_resources') ? <FileCheck size={16} /> : <Lock size={16} />}
-                      查看历史会议记录
-                   </button>
-                </div>
-              </div>
-           </div>
+        {/* Project Briefing - MOVED TO TOP */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center gap-2">
+                <FileText size={18} className="text-blue-600" />
+                <h2 className="font-bold text-slate-800">项目改善报告</h2>
+            </div>
+            <div className="p-6 md:p-8">
+            <div 
+                className="prose prose-slate prose-sm md:prose-base max-w-none"
+                dangerouslySetInnerHTML={{ __html: currentData.content }}
+            />
+            <div className="mt-8 flex flex-wrap gap-3">
+                <button 
+                    onClick={() => handleDownload(currentData.actionPlanFile, '详细行动计划')}
+                    className="px-4 py-2.5 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-lg shadow-slate-900/20 active:transform active:scale-95"
+                >
+                    {hasPermission(currentUser, 'download_resources') ? <Download size={16} /> : <Lock size={16} />}
+                    下载详细行动计划
+                </button>
+                <button 
+                    onClick={() => handleDownload(currentData.meetingRecordFile, '历史会议记录')}
+                    className="px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors flex items-center gap-2 active:transform active:scale-95"
+                >
+                    {hasPermission(currentUser, 'download_resources') ? <FileCheck size={16} /> : <Lock size={16} />}
+                    查看历史会议记录
+                </button>
+            </div>
+            </div>
         </div>
 
-        {/* RIGHT: Stats & Risk */}
-        <div className="space-y-6">
-           {/* Current Stat Card */}
-           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-10 -mt-10 blur-2xl opacity-50"></div>
-              <div className="relative">
-                <div className="flex items-center justify-between mb-4">
-                   <span className="text-slate-500 font-medium text-sm">最新{currentKpi.label}</span>
-                   <div className="p-2 bg-blue-50 text-blue-600 rounded-lg shadow-sm"><Activity size={20} /></div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* LEFT: Report & Charts */}
+            <div className="lg:col-span-2 space-y-6">
+            
+            {/* Comparison & Chart Card */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                {/* KPI Selector Tabs */}
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2 overflow-x-auto">
+                    <BarChart3 size={18} className="text-blue-600 flex-shrink-0" />
+                    <div className="flex gap-2">
+                        {currentData.kpis.map((kpi, idx) => (
+                            <button 
+                                key={kpi.id}
+                                onClick={() => setSelectedKpiIndex(idx)}
+                                className={`text-sm px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap font-medium ${selectedKpiIndex === idx ? 'bg-slate-900 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                            >
+                                {kpi.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-                <div className="flex items-baseline gap-2 mb-1">
-                   <div className="text-5xl font-bold text-slate-900 tracking-tight">{currentKpi.value}</div>
-                   <div className="text-xl font-medium text-slate-400">{currentKpi.unit}</div>
-                </div>
-                <div className="flex items-center gap-3 text-xs font-medium mt-3">
-                   <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${isBetterUp ? (currentKpi.value >= currentKpi.target ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50') : (currentKpi.value <= currentKpi.target ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50')}`}>
-                       {currentKpi.value >= currentKpi.target ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                       目标: {currentKpi.target}{currentKpi.unit}
-                   </div>
-                </div>
-              </div>
-           </div>
 
-           {/* Risk Card */}
-           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-              <div className="flex items-center justify-between mb-4">
-                 <span className="text-slate-500 font-medium text-sm">{currentData.risk.label}</span>
-                 <div className={`p-2 rounded-lg shadow-sm ${currentData.risk.color}`}>
-                    {renderRiskIcon(currentData.risk.icon)}
-                 </div>
-              </div>
-              <div className="text-3xl font-bold text-slate-900">{currentData.risk.value}</div>
-              <div className="text-slate-400 text-xs mt-2 leading-relaxed">
-                需重点关注的异常指标或人员名单，点击下方按钮查看详情。
-              </div>
-              <button 
-                onClick={() => setIsRiskModalOpen(true)}
-                className="w-full mt-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium"
-              >
-                查看详细列表
-              </button>
-           </div>
+                <div className="p-6">
+                    {/* Granularity Tabs */}
+                    <div className="flex justify-center mb-8">
+                        <div className="bg-slate-100 p-1 rounded-xl inline-flex">
+                        {(['Month', 'Quarter', 'HalfYear', 'Year'] as TimeGranularity[]).map((g) => {
+                            // Only allow selection if data can support it (based on configured window)
+                            // Actually, we'll allow all, but if data is coarser, it won't show.
+                            // Better UX: Always allow, aggregation logic handles hiding.
+                            return (
+                                <button
+                                    key={g}
+                                    onClick={() => setGranularity(g)}
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${granularity === g ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    {g === 'Month' ? '月度' : g === 'Quarter' ? '季度' : g === 'HalfYear' ? '半年度' : '年度'}
+                                </button>
+                            );
+                        })}
+                        </div>
+                    </div>
+
+                    {aggregatedData.length === 0 ? (
+                        <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                             此视图下暂无数据
+                        </div>
+                    ) : (
+                    <>
+                    {/* Comparison Tool */}
+                    <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-8 items-center">
+                        {/* Left Side: Period A */}
+                        <div className="md:col-span-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <div className="flex justify-between mb-2">
+                                <span className="text-xs font-bold text-slate-500 uppercase">当前周期</span>
+                                <select 
+                                value={compareA}
+                                onChange={(e) => setCompareA(e.target.value)}
+                                className="text-xs bg-white border border-slate-200 rounded px-2 py-0.5 outline-none focus:border-blue-500"
+                                >
+                                    {aggregatedData.map(d => <option key={d.label} value={d.label}>{d.label}</option>)}
+                                </select>
+                            </div>
+                            <div className="text-2xl font-bold text-slate-900 flex items-baseline gap-1">
+                                {valA} <span className="text-sm font-normal text-slate-400">{currentKpi.unit}</span>
+                            </div>
+                        </div>
+
+                        {/* Middle: Delta */}
+                        <div className="md:col-span-1 flex flex-col items-center justify-center">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-1 ${deltaBg}`}>
+                                {isImproved ? <ArrowUpRight size={20} className="text-green-600" /> : <ArrowDownRight size={20} className="text-red-600" />}
+                            </div>
+                            <span className={`text-xs font-bold ${deltaColor}`}>
+                                {delta > 0 ? '+' : ''}{delta.toFixed(1)}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                            ({percentChange.toFixed(1)}%)
+                            </span>
+                        </div>
+
+                        {/* Right Side: Period B */}
+                        <div className="md:col-span-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <div className="flex justify-between mb-2">
+                                <span className="text-xs font-bold text-slate-500 uppercase">对比周期</span>
+                                <select 
+                                value={compareB}
+                                onChange={(e) => setCompareB(e.target.value)}
+                                className="text-xs bg-white border border-slate-200 rounded px-2 py-0.5 outline-none focus:border-blue-500"
+                                >
+                                    {aggregatedData.map(d => <option key={d.label} value={d.label}>{d.label}</option>)}
+                                </select>
+                            </div>
+                            <div className="text-2xl font-bold text-slate-900 flex items-baseline gap-1">
+                                {valB} <span className="text-sm font-normal text-slate-400">{currentKpi.unit}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Chart Area */}
+                    <div className="h-[300px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={aggregatedData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
+                                <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis 
+                                dataKey="label" 
+                                stroke="#94a3b8" 
+                                tickLine={false} 
+                                axisLine={false} 
+                                dy={10}
+                                fontSize={11}
+                            />
+                            <YAxis 
+                                stroke="#94a3b8" 
+                                tickLine={false} 
+                                axisLine={false} 
+                                dx={-10}
+                                fontSize={11}
+                                domain={['auto', 'auto']}
+                            />
+                            <Tooltip 
+                                contentStyle={{ backgroundColor: '#1e293b', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px' }}
+                                itemStyle={{ color: '#fff' }}
+                                cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }}
+                            />
+                            <Area 
+                                type="monotone" 
+                                dataKey="value" 
+                                stroke="#2563eb" 
+                                strokeWidth={3} 
+                                fillOpacity={1} 
+                                fill="url(#colorValue)" 
+                                activeDot={{ r: 6, strokeWidth: 0 }}
+                            />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                    </>
+                    )}
+                </div>
+            </div>
+
+            </div>
+
+            {/* RIGHT: Stats & Risk */}
+            <div className="space-y-6">
+            {/* Current Stat Card */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-10 -mt-10 blur-2xl opacity-50"></div>
+                <div className="relative">
+                    <div className="flex items-center justify-between mb-4">
+                    <span className="text-slate-500 font-medium text-sm">最新{currentKpi.label}</span>
+                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg shadow-sm"><Activity size={20} /></div>
+                    </div>
+                    <div className="flex items-baseline gap-2 mb-1">
+                    <div className="text-5xl font-bold text-slate-900 tracking-tight">{currentKpi.value}</div>
+                    <div className="text-xl font-medium text-slate-400">{currentKpi.unit}</div>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs font-medium mt-3">
+                    <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${isBetterUp ? (currentKpi.value >= currentKpi.target ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50') : (currentKpi.value <= currentKpi.target ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50')}`}>
+                        {currentKpi.value >= currentKpi.target ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                        目标: {currentKpi.target}{currentKpi.unit}
+                    </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Risk Card */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div className="flex items-center justify-between mb-4">
+                    <span className="text-slate-500 font-medium text-sm">{currentData.risk.label}</span>
+                    <div className={`p-2 rounded-lg shadow-sm ${currentData.risk.color}`}>
+                        {renderRiskIcon(currentData.risk.icon)}
+                    </div>
+                </div>
+                <div className="text-3xl font-bold text-slate-900">{currentData.risk.value}</div>
+                <div className="text-slate-400 text-xs mt-2 leading-relaxed">
+                    需重点关注的异常指标或人员名单，点击下方按钮查看详情。
+                </div>
+                <button 
+                    onClick={() => setIsRiskModalOpen(true)}
+                    className="w-full mt-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium"
+                >
+                    查看详细列表
+                </button>
+            </div>
+            </div>
         </div>
       </div>
 

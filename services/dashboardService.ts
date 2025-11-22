@@ -51,10 +51,9 @@ const DEFAULT_PROJECTS: DashboardProject[] = [
         aggregation: 'avg',
         direction: 'up',
         chartData: [
-           { month: '2023-07', value: 28 }, { month: '2023-08', value: 29 }, { month: '2023-09', value: 30 },
-           { month: '2023-10', value: 32 }, { month: '2023-11', value: 31 }, { month: '2023-12', value: 35 },
-           { month: '2024-01', value: 30 }, { month: '2024-02', value: 32 }, { month: '2024-03', value: 35 },
-           { month: '2024-04', value: 38 }, { month: '2024-05', value: 40 }, { month: '2024-06', value: 42 },
+           { month: '2023-Q1', value: 28 }, { month: '2023-Q2', value: 29 }, { month: '2023-Q3', value: 30 },
+           { month: '2023-Q4', value: 35 },
+           { month: '2024-Q1', value: 38 }, { month: '2024-Q2', value: 42 }
         ]
       }
     ],

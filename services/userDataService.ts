@@ -1,5 +1,5 @@
 
-import { UserUpload, AdminNote, WatchedLesson, ReadArticle, User, EmailLog } from '../types';
+import { UserUpload, AdminNote, WatchedLesson, ReadArticle, User, EmailLog, BusinessLead } from '../types';
 
 const UPLOADS_KEY = 'captain_user_uploads';
 const NOTES_KEY = 'captain_admin_notes';
@@ -7,6 +7,7 @@ const HISTORY_KEY = 'captain_user_history';
 const ARTICLE_HISTORY_KEY = 'captain_read_articles';
 const USERS_DB_KEY = 'captain_users_db';
 const EMAIL_LOGS_KEY = 'captain_email_logs';
+const LEADS_KEY = 'captain_business_leads';
 
 // Mock Data for Uploads
 const MOCK_UPLOADS: UserUpload[] = [
@@ -201,6 +202,22 @@ export const updateUserPlan = (userId: string, plan: 'free' | 'pro'): void => {
             localStorage.setItem('captainUser', JSON.stringify(currentUser));
         }
     }
+};
+
+// --- Business Leads Logic (Form Submissions) ---
+
+export const getBusinessLeads = (): BusinessLead[] => {
+    try {
+        const stored = localStorage.getItem(LEADS_KEY);
+        if (stored) return JSON.parse(stored);
+    } catch(e) { console.error(e); }
+    return [];
+};
+
+export const saveBusinessLead = (lead: BusinessLead): void => {
+    const leads = getBusinessLeads();
+    leads.unshift(lead);
+    localStorage.setItem(LEADS_KEY, JSON.stringify(leads));
 };
 
 // --- Email Verification Logic (Simulation) ---

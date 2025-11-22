@@ -229,6 +229,7 @@ export type PermissionKey = string;
 export interface PermissionDefinition {
   key: string;
   label: string;
+  module?: string; // Added module for grouping permissions
 }
 
 export interface PermissionConfig {
@@ -244,6 +245,25 @@ export interface EmailLog {
   subject: string;
   sentAt: string;
   status: 'sent' | 'verified';
+}
+
+// NEW: Business Contact Info Interface
+export interface BusinessContactInfo {
+  contactPerson: string;
+  contactMethod: string; // Phone or WeChat ID
+  email: string;
+}
+
+// NEW: Business Lead Interface (Submitted Form Data)
+export interface BusinessLead {
+  id: string;
+  name: string;
+  position: string; // New: Job Position
+  company: string;
+  phone: string;
+  email: string;
+  submittedAt: string;
+  status: 'new' | 'contacted';
 }
 
 export enum AppRoute {

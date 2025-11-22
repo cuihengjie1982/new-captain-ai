@@ -1,5 +1,5 @@
 
-import { BlogPost, IntroVideo, DiagnosisIssue, BlogPostComment, CommentReply, User, AboutUsInfo } from '../types';
+import { BlogPost, IntroVideo, DiagnosisIssue, BlogPostComment, CommentReply, User, AboutUsInfo, BusinessContactInfo } from '../types';
 
 const STORAGE_KEY = 'captain_blog_posts';
 const INTRO_VIDEO_KEY = 'captain_intro_video';
@@ -7,6 +7,7 @@ const DIAGNOSIS_ISSUES_KEY = 'captain_diagnosis_issues';
 const COMMENTS_KEY = 'captain_blog_comments';
 const PAYMENT_QR_KEY = 'captain_payment_qr';
 const ABOUT_US_KEY = 'captain_about_us';
+const BUSINESS_CONTACT_KEY = 'captain_business_contact';
 
 const DEFAULT_POSTS: BlogPost[] = [
   {
@@ -155,6 +156,12 @@ const DEFAULT_ABOUT_US: AboutUsInfo = {
   contactEmail: 'contact@cmbpo.com'
 };
 
+const DEFAULT_BUSINESS_CONTACT: BusinessContactInfo = {
+    contactPerson: '客户经理',
+    contactMethod: '188-8888-8888',
+    email: 'business@captain.ai'
+};
+
 // Mock Comments Data
 const DEFAULT_COMMENTS: BlogPostComment[] = [
   {
@@ -295,7 +302,7 @@ export const saveAboutUsInfo = (info: AboutUsInfo): void => {
   localStorage.setItem(ABOUT_US_KEY, JSON.stringify(info));
 };
 
-// --- Payment QR Code Method ---
+// --- Business Contact / QR Code Methods ---
 
 export const getPaymentQRCode = (): string => {
   try {
@@ -305,6 +312,18 @@ export const getPaymentQRCode = (): string => {
 
 export const savePaymentQRCode = (url: string): void => {
   localStorage.setItem(PAYMENT_QR_KEY, url);
+};
+
+export const getBusinessContactInfo = (): BusinessContactInfo => {
+  try {
+    const stored = localStorage.getItem(BUSINESS_CONTACT_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch(e) { console.error(e); }
+  return DEFAULT_BUSINESS_CONTACT;
+};
+
+export const saveBusinessContactInfo = (info: BusinessContactInfo): void => {
+  localStorage.setItem(BUSINESS_CONTACT_KEY, JSON.stringify(info));
 };
 
 // --- Comment Management Methods ---

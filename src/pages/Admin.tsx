@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Settings, BookOpen, Video, Database, Plus, Trash2, Edit, Save, X, Bot,
@@ -17,9 +18,14 @@ import { AI_MODELS } from '../services/geminiService';
 
 // Specific AI Models for Video Transcript Generation
 const VIDEO_AI_MODELS = [
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+  { id: 'deepseek-r1', name: 'DeepSeek R1' },
+  { id: 'glm-4-6', name: 'GLM 4.6' },
+  { id: 'kimi-2', name: 'KIMI 2' },
   { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
-  { id: 'gemini-2.5-flash-native-audio', name: 'Gemini 2.5 Audio' }
+  { id: 'gemini-3.0-pro', name: 'Gemini 3.0 Pro' },
+  { id: 'claude-4-5-sonnet', name: 'Claude 4.5 Sonnet' },
+  { id: 'grok-4', name: 'Grok 4' },
+  { id: 'chatgpt-5', name: 'ChatGPT 5' }
 ];
 
 // Helper Function for File Import
@@ -337,6 +343,7 @@ const Admin: React.FC = () => {
   const [userSubTab, setUserSubTab] = useState<'list' | 'plans' | 'permissions' | 'business'>('list');
   const [selectedUserForDetail, setSelectedUserForDetail] = useState<string | null>(null);
   const [plansConfig, setPlansConfig] = useState<PlansPageConfig | null>(null);
+  const [isEditingPlan, setIsEditingPlan] = useState(false);
   
   // Permission Data
   const [permissions, setPermissions] = useState<PermissionDefinition[]>([]);
@@ -1712,83 +1719,28 @@ const Admin: React.FC = () => {
                   <label className="block text-xs font-bold text-slate-500 mb-1">视频标题</label>
                   <input className="w-full border p-2 rounded text-sm" value={introVideo?.title || ''} onChange={e => setIntroVideo(prev => prev ? {...prev, title: e.target.value} : null)} />
               </div>
-              
-              {/* Source Type Selection */}
               <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-2">视频来源</label>
-                  <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="radio" name="introSource" checked={introVideo?.sourceType === 'link'} onChange={() => setIntroVideo(prev => prev ? {...prev, sourceType: 'link'} : null)} className="text-blue-600" />
-                          <span className="text-sm">外部链接 (URL)</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="radio" name="introSource" checked={introVideo?.sourceType === 'upload'} onChange={() => setIntroVideo(prev => prev ? {...prev, sourceType: 'upload'} : null)} className="text-blue-600" />
-                          <span className="text-sm">本地上传 (Import)</span>
-                      </label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">视频 URL</label>
+                  <input className="w-full border p-2 rounded text-sm" value={introVideo?.url || ''} onChange={e => setIntroVideo(prev => prev ? {...prev, url: e.target.value} : null)} />
+              </div>
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">封面图 URL</label>
+                  <div className="flex gap-2">
+                      <input className="w-full border p-2 rounded text-sm" value={introVideo?.thumbnail || ''} onChange={e => setIntroVideo(prev => prev ? {...prev, thumbnail: e.target.value} : null)} />
+                      <label className="p-2 border rounded bg-slate-50 cursor-pointer hover:bg-slate-100"><ImageIcon size={16} /><input type="file" className="hidden" accept="image/*" onChange={(e) => handleMediaImport(e, (url) => setIntroVideo(prev => prev ? {...prev, thumbnail: url} : null))} /></label>
                   </div>
               </div>
-
-              {introVideo?.sourceType === 'link' ? (
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">视频链接 (URL)</label>
-                      <input className="w-full border p-2 rounded text-sm" value={introVideo?.url || ''} onChange={e => setIntroVideo(prev => prev ? {...prev, url: e.target.value} : null)} placeholder="https://..." />
-                  </div>
-              ) : (
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">上传视频文件</label>
-                      <div className="flex gap-2">
-                          <input className="flex-1 border p-2 rounded text-sm bg-slate-50 text-slate-500" value={introVideo?.url?.startsWith('blob') ? '已选择本地文件' : introVideo?.url || ''} disabled />
-                          <label className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded cursor-pointer transition-colors flex items-center gap-2">
-                              <Upload size={14} /> 上传
-                              <input type="file" className="hidden" accept="video/*" onChange={(e) => { if(e.target.files?.[0]) setIntroVideo(prev => prev ? {...prev, url: URL.createObjectURL(e.target.files[0])} : null) }} />
-                          </label>
-                      </div>
-                  </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">封面图 URL</label>
-                      <div className="flex gap-2">
-                          <input className="w-full border p-2 rounded text-sm" value={introVideo?.thumbnail || ''} onChange={e => setIntroVideo(prev => prev ? {...prev, thumbnail: e.target.value} : null)} />
-                          <label className="p-2 border rounded bg-slate-50 cursor-pointer hover:bg-slate-100"><ImageIcon size={16} /><input type="file" className="hidden" accept="image/*" onChange={(e) => handleMediaImport(e, (url) => setIntroVideo(prev => prev ? {...prev, thumbnail: url} : null))} /></label>
-                      </div>
-                  </div>
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">视频时长 (展示用)</label>
-                      <input className="w-full border p-2 rounded text-sm" value={introVideo?.duration || ''} onChange={e => setIntroVideo(prev => prev ? {...prev, duration: e.target.value} : null)} placeholder="例如 02:30" />
-                  </div>
+              <div className="flex items-center gap-2">
+                  <input type="checkbox" checked={introVideo?.isVisible} onChange={e => setIntroVideo(prev => prev ? {...prev, isVisible: e.target.checked} : null)} />
+                  <label className="text-sm text-slate-700">在首页显示视频</label>
               </div>
-
-              <div className="flex items-center justify-between pt-2">
-                  <div className="flex items-center gap-2">
-                      <input type="checkbox" checked={introVideo?.isVisible} onChange={e => setIntroVideo(prev => prev ? {...prev, isVisible: e.target.checked} : null)} />
-                      <label className="text-sm text-slate-700">在首页显示视频</label>
-                  </div>
-                  {introVideo?.lastUpdated && <span className="text-xs text-slate-400">上次更新: {introVideo.lastUpdated}</span>}
-              </div>
-              
-              <button onClick={handleSaveIntroVideo} className="w-full bg-blue-600 text-white px-4 py-2.5 rounded text-sm font-bold hover:bg-blue-700 transition-colors">保存视频配置</button>
+              <button onClick={handleSaveIntroVideo} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700">保存视频配置</button>
            </div>
-           
-           {/* Preview */}
-           <div className="bg-slate-900 rounded-xl overflow-hidden aspect-video relative group border border-slate-200 shadow-inner">
-               {introVideo?.thumbnail ? (
-                   <img src={introVideo.thumbnail} className="w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity" />
-               ) : (
-                   <div className="w-full h-full flex items-center justify-center text-slate-600">No Thumbnail</div>
-               )}
-               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                   <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur flex items-center justify-center mb-2">
-                       <MonitorPlay size={24} className="text-white fill-current" />
-                   </div>
-                   <span className="text-white/80 text-xs font-bold">预览区域</span>
+           <div className="bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden aspect-video relative">
+               {introVideo?.thumbnail && <img src={introVideo.thumbnail} className="w-full h-full object-cover opacity-50" />}
+               <div className="absolute inset-0 flex items-center justify-center">
+                   <span className="text-slate-500 font-bold">预览区域</span>
                </div>
-               {introVideo?.duration && (
-                   <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/60 text-white text-xs rounded font-mono">
-                       {introVideo.duration}
-                   </div>
-               )}
            </div>
         </div>
       </div>

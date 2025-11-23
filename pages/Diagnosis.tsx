@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AppRoute, KnowledgeCategory, UserUpload, User, KnowledgeItem } from '../types';
@@ -7,19 +6,53 @@ import {
   ArrowRight, Send, Loader2, RotateCcw, Sparkles,
   FileText, Download, Upload, FileCheck, Mail, CheckCircle,
   X, FileSpreadsheet, Presentation, BookOpen, File, Copy, Check, Lock, Crown,
-  PenTool, MessageSquare, Stethoscope
+  PenTool, MessageSquare, Stethoscope, Video, Mic, StopCircle, Radio, Camera, LayoutTemplate
 } from 'lucide-react';
 import { getKnowledgeCategories } from '../services/resourceService';
 import { saveUserUpload } from '../services/userDataService';
 import { createChatSession, sendMessageToAI } from '../services/geminiService';
 import { getDiagnosisIssues as getIssuesContent } from '../services/contentService';
 import { hasPermission } from '../services/permissionService';
+import { GoogleGenAI, LiveServerMessage, Modality, Blob as GenAIBlob } from '@google/genai';
 
 interface Message {
   id: string;
   sender: 'ai' | 'user';
   text: string;
   action?: 'switch_to_expert'; // Added action type
+}
+
+// --- Live API Helper Functions ---
+function base64ToUint8Array(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function createPcmBlob(data: Float32Array): GenAIBlob {
+  const l = data.length;
+  const int16 = new Int16Array(l);
+  for (let i = 0; i < l; i++) {
+    int16[i] = data[i] * 32768;
+  }
+  return {
+    data: arrayBufferToBase64(int16.buffer),
+    mimeType: 'audio/pcm;rate=16000',
+  };
 }
 
 // Helper Component for Copy Button
@@ -86,7 +119,7 @@ const Diagnosis: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Tabs state
-  const [activeTab, setActiveTab] = useState<'ai' | 'expert'>('ai');
+  const [activeTab, setActiveTab] = useState<'ai' | 'expert' | 'interview'>('ai');
 
   // AI Chat State
   const [messages, setMessages] = useState<Message[]>([]);
@@ -102,6 +135,18 @@ const Diagnosis: React.FC = () => {
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success'>('idle');
   const [uploadedFileName, setUploadedFileName] = useState('');
   
+  // Interview Mode State
+  const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '3:4' | '1:1'>('9:16');
+  const [isRecording, setIsRecording] = useState(false);
+  const [aiInterviewQuestion, setAiInterviewQuestion] = useState("请点击左侧“开始录制”按钮。AI 将通过视频与您进行互动访谈，挖掘您的需求。");
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const liveSessionRef = useRef<any>(null); // Keep track of Gemini Live session
+
   // Modals State
   const [showPaymentGate, setShowPaymentGate] = useState(false);
   const [showResourceModal, setShowResourceModal] = useState(false);
@@ -179,6 +224,276 @@ const Diagnosis: React.FC = () => {
       }]);
     }
   }, [location.state]);
+
+  // --- Interview Mode Logic ---
+
+  useEffect(() => {
+    // Only stop camera when leaving the interview tab
+    if (activeTab !== 'interview') {
+      stopCamera();
+      stopLiveSession();
+      setIsRecording(false);
+    }
+    return () => {
+      stopCamera();
+      stopLiveSession();
+    };
+  }, [activeTab]);
+
+  // Handle canvas drawing for selected aspect ratio
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const draw = () => {
+      // Draw only if we have a stream and it is active
+      if (videoRef.current && canvasRef.current && streamRef.current && streamRef.current.active) {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        
+        if (ctx && video.readyState === video.HAVE_ENOUGH_DATA) {
+            // Set canvas size based on aspect ratio (base height 720p or similar)
+            const baseH = 720;
+            let targetW = baseH;
+            let targetH = baseH;
+
+            switch (aspectRatio) {
+                case '9:16': targetW = 405; targetH = 720; break;
+                case '16:9': targetW = 720; targetH = 405; break;
+                case '3:4': targetW = 540; targetH = 720; break;
+                case '1:1': targetW = 720; targetH = 720; break;
+            }
+
+            // Only update dimensions if needed to avoid flicker
+            if (canvas.width !== targetW || canvas.height !== targetH) {
+                canvas.width = targetW;
+                canvas.height = targetH;
+            }
+
+            // Calculate center crop
+            const vidW = video.videoWidth;
+            const vidH = video.videoHeight;
+            const vidRatio = vidW / vidH;
+            const targetRatio = targetW / targetH;
+
+            let sx, sy, sw, sh;
+
+            if (vidRatio > targetRatio) {
+                // Video is wider than target
+                sh = vidH;
+                sw = vidH * targetRatio;
+                sy = 0;
+                sx = (vidW - sw) / 2;
+            } else {
+                // Video is taller than target
+                sw = vidW;
+                sh = vidW / targetRatio;
+                sx = 0;
+                sy = (vidH - sh) / 2;
+            }
+
+            // Mirror effect
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, sx, sy, sw, sh, -targetW, 0, targetW, targetH);
+            ctx.restore();
+        }
+      }
+      animationFrameId = requestAnimationFrame(draw);
+    };
+
+    if (activeTab === 'interview') {
+        draw();
+    }
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [aspectRatio, activeTab]);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      return true;
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      alert("无法访问摄像头或麦克风，请检查权限设置。");
+      return false;
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+        videoRef.current.srcObject = null;
+    }
+  };
+
+  // --- Gemini Live Integration ---
+  const startLiveSession = async () => {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.error("No API key found");
+      return;
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+    
+    // We do NOT create an output AudioContext or Source because we only want text transcription.
+    // The requirement is "text only, no audio".
+
+    try {
+      let sessionPromise: Promise<any>;
+      sessionPromise = ai.live.connect({
+        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        callbacks: {
+          onopen: () => {
+            console.log("Gemini Live Connected");
+            setIsLiveConnected(true);
+            setAiInterviewQuestion("我们连接成功了！请告诉我，您现在管理团队时，最担心的一件事是什么？");
+
+            // Setup input streaming
+            if (streamRef.current) {
+                const source = audioContext.createMediaStreamSource(streamRef.current);
+                const scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                
+                scriptProcessor.onaudioprocess = (e) => {
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    const pcmBlob = createPcmBlob(inputData);
+                    if (sessionPromise) {
+                        sessionPromise.then(session => session.sendRealtimeInput({ media: pcmBlob }));
+                    }
+                };
+                
+                source.connect(scriptProcessor);
+                scriptProcessor.connect(audioContext.destination);
+                liveSessionRef.current = { sessionPromise, scriptProcessor, source, audioContext };
+            }
+          },
+          onmessage: (msg: LiveServerMessage) => {
+            // Check for transcription
+            if (msg.serverContent?.outputTranscription) {
+               // This is the text of what the AI *would* say
+               const text = msg.serverContent.outputTranscription.text;
+               if (text) {
+                   setAiInterviewQuestion(prev => {
+                       // Reset if previous was a complete sentence or question
+                       if (prev.endsWith('？') || prev.endsWith('。') || prev.includes("请点击")) return text;
+                       return prev + text;
+                   });
+               }
+            }
+            
+            if (msg.serverContent?.turnComplete) {
+                console.log("AI Turn Complete");
+            }
+          },
+          onclose: () => {
+            console.log("Gemini Live Closed");
+            setIsLiveConnected(false);
+          },
+          onerror: (err) => {
+            console.error("Gemini Live Error", err);
+            setIsLiveConnected(false);
+          }
+        },
+        config: {
+          responseModalities: [Modality.AUDIO], // Must be AUDIO for Live API
+          outputAudioTranscription: { model: "gemini-2.5-flash" }, // Enable transcription to get text
+          systemInstruction: `You are a professional, empathetic, and slightly charismatic Video Podcast Host interviewing a Call Center Manager. 
+          Your goal is to help them articulate their operational problems.
+          1. Ask SHORT, concise, open-ended questions (1-2 sentences max).
+          2. Listen to their answer, acknowledge it briefly, and ask a follow-up.
+          3. Do NOT provide solutions yet. Just dig deeper into the problem.
+          4. Actively listen.
+          5. Keep the tone elegant and professional.
+          6. IMPORTANT: You are generating text for subtitles on a video screen, so keep it readable.`,
+        }
+      });
+    } catch (e) {
+      console.error("Failed to connect to Live API", e);
+      alert("无法连接到 AI 服务，请稍后再试。");
+    }
+  };
+
+  const stopLiveSession = () => {
+    if (liveSessionRef.current) {
+        liveSessionRef.current.sessionPromise.then((session: any) => session.close());
+        liveSessionRef.current.source.disconnect();
+        liveSessionRef.current.scriptProcessor.disconnect();
+        liveSessionRef.current.audioContext.close();
+        liveSessionRef.current = null;
+    }
+    setIsLiveConnected(false);
+  };
+
+  const handleRecordToggle = async () => {
+    if (isRecording) {
+      // Stop Recording
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      stopLiveSession();
+      stopCamera(); 
+      setIsRecording(false);
+      setAiInterviewQuestion("访谈已结束。您可以下载视频或点击开始重新录制。");
+    } else {
+      // Start Recording
+      const success = await startCamera();
+      if (!success) return;
+      
+      // Wait slightly for video to be ready
+      await new Promise(r => setTimeout(r, 500));
+
+      if (canvasRef.current && streamRef.current) {
+          const canvasStream = canvasRef.current.captureStream(30); // 30 FPS
+          const audioTracks = streamRef.current.getAudioTracks();
+          if (audioTracks.length > 0) {
+            canvasStream.addTrack(audioTracks[0]);
+          }
+
+          const recorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
+          recordedChunksRef.current = [];
+
+          recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+              recordedChunksRef.current.push(e.data);
+            }
+          };
+
+          recorder.start();
+          mediaRecorderRef.current = recorder;
+          setIsRecording(true);
+          
+          // Start AI Interviewer
+          await startLiveSession();
+      }
+    }
+  };
+
+  const handleDownloadVideo = () => {
+    if (recordedChunksRef.current.length === 0) {
+        alert("暂无录制内容");
+        return;
+    }
+    const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `interview_${aspectRatio.replace(':','-')}_${Date.now()}.webm`; 
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -349,10 +664,10 @@ const Diagnosis: React.FC = () => {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex gap-8">
+        <div className="flex gap-8 overflow-x-auto">
            <button 
               onClick={() => setActiveTab('ai')}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === 'ai' 
                   ? 'border-blue-600 text-blue-600' 
                   : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-200'
@@ -361,8 +676,18 @@ const Diagnosis: React.FC = () => {
               AI 智能诊断
            </button>
            <button 
+              onClick={() => setActiveTab('interview')}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1 whitespace-nowrap ${
+                activeTab === 'interview' 
+                  ? 'border-blue-600 text-blue-600' 
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-200'
+              }`}
+           >
+              <Video size={14} className="mb-0.5" /> AI 视频访谈
+           </button>
+           <button 
               onClick={() => setActiveTab('expert')}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1 ${
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1 whitespace-nowrap ${
                 activeTab === 'expert' 
                   ? 'border-blue-600 text-blue-600' 
                   : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-200'
@@ -461,6 +786,132 @@ const Diagnosis: React.FC = () => {
                 </div>
              </div>
           </div>
+        )}
+
+        {/* --- TAB 3: AI Video Interview (New Module) --- */}
+        {activeTab === 'interview' && (
+           <div className="absolute inset-0 bg-slate-100 flex flex-col md:flex-row overflow-hidden">
+               {/* Hidden Source Video (for getUserMedia) */}
+               <video ref={videoRef} className="hidden" autoPlay muted playsInline></video>
+
+               {/* Left/Top Control Panel */}
+               <div className="w-full md:w-80 bg-white border-r border-slate-200 p-6 flex flex-col z-20 shadow-xl overflow-y-auto">
+                   <div className="mb-6">
+                      <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                          <Camera size={24} className="text-blue-600" />
+                          视频需求录制
+                      </h3>
+                      <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                          像与真人聊天一样，通过视频口述您的需求。AI 将引导您理清思路。
+                      </p>
+                   </div>
+                   
+                   <div className="space-y-6 flex-1">
+                       <div>
+                           <label className="block text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-1">
+                               <LayoutTemplate size={14} /> 视频比例
+                           </label>
+                           <div className="grid grid-cols-2 gap-3">
+                               {['9:16', '16:9', '3:4', '1:1'].map((ratio) => (
+                                   <button 
+                                      key={ratio}
+                                      onClick={() => !isRecording && setAspectRatio(ratio as any)}
+                                      disabled={isRecording}
+                                      className={`px-3 py-2.5 rounded-lg text-sm font-bold border transition-all ${aspectRatio === ratio ? 'bg-slate-900 text-white border-slate-900 ring-2 ring-blue-200' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'}`}
+                                   >
+                                      {ratio}
+                                   </button>
+                               ))}
+                           </div>
+                       </div>
+
+                       <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                           <h4 className="font-bold text-blue-900 text-sm mb-2 flex items-center gap-2">
+                              <Sparkles size={14} /> AI 访谈助手
+                           </h4>
+                           <p className="text-xs text-blue-700 leading-relaxed">
+                               Gemini 将实时倾听您的描述，并以文字气泡的形式提出引导性问题。就像播客主持人一样，帮助您挖掘深层需求。
+                           </p>
+                       </div>
+                   </div>
+
+                   <div className="mt-8 border-t border-slate-100 pt-6 space-y-3 pb-4">
+                       {!isRecording ? (
+                           <button 
+                             onClick={handleRecordToggle}
+                             className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/20"
+                           >
+                               <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                               开始录制访谈
+                           </button>
+                       ) : (
+                           <button 
+                             onClick={handleRecordToggle}
+                             className="w-full py-4 bg-slate-900 hover:bg-black text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+                           >
+                               <StopCircle size={20} />
+                               停止录制
+                           </button>
+                       )}
+                       
+                       {recordedChunksRef.current.length > 0 && !isRecording && (
+                           <button 
+                             onClick={handleDownloadVideo}
+                             className="w-full py-3 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+                           >
+                               <Download size={18} />
+                               下载访谈视频
+                           </button>
+                       )}
+                   </div>
+               </div>
+
+               {/* Video Preview Area */}
+               <div className="flex-1 bg-slate-200 flex items-center justify-center relative overflow-hidden bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px] min-h-[400px]">
+                   
+                   <div 
+                     className={`relative shadow-2xl overflow-hidden bg-black transition-all duration-500 ease-in-out border-4 border-white ring-1 ring-slate-200 ${
+                        aspectRatio === '9:16' ? 'aspect-[9/16] h-[85%]' : 
+                        aspectRatio === '16:9' ? 'aspect-video w-[90%]' : 
+                        aspectRatio === '3:4' ? 'aspect-[3/4] h-[80%]' : 
+                        'aspect-square h-[80%]'
+                     } rounded-2xl`}
+                   >
+                       {/* Canvas for Displaying Camera/Recording */}
+                       <canvas ref={canvasRef} className="w-full h-full object-contain bg-black"></canvas>
+
+                       {/* Placeholder when not recording / camera off */}
+                       {!isRecording && !streamRef.current && (
+                           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 text-slate-400 z-10">
+                               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
+                                   <Camera size={32} className="opacity-50" />
+                               </div>
+                               <p className="text-sm font-medium">点击左侧“开始录制”开启摄像头</p>
+                           </div>
+                       )}
+                       
+                       {/* AI Overlay Bubble */}
+                       <div className="absolute bottom-8 left-4 right-4 z-20">
+                           <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-white/50 animate-in slide-in-from-bottom-4 duration-500">
+                               <div className="flex items-center gap-2 mb-2">
+                                  <div className={`w-2 h-2 rounded-full ${isLiveConnected ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">AI Host {isLiveConnected ? 'Listening' : 'Ready'}</span>
+                               </div>
+                               <p className="text-slate-800 font-medium text-lg leading-relaxed">
+                                   {aiInterviewQuestion}
+                               </p>
+                           </div>
+                       </div>
+                       
+                       {/* Status Indicator */}
+                       {isRecording && (
+                           <div className="absolute top-4 right-4 px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full flex items-center gap-2 animate-pulse shadow-sm z-30">
+                               <div className="w-2 h-2 bg-white rounded-full"></div> REC
+                           </div>
+                       )}
+                   </div>
+               </div>
+           </div>
         )}
 
         {/* --- TAB 2: Expert Interface --- */}
@@ -588,188 +1039,86 @@ const Diagnosis: React.FC = () => {
                    {uploadStatus === 'success' && (
                      <div className="mt-4 p-4 bg-green-50 border border-green-100 rounded-lg flex items-center gap-3">
                        <FileCheck size={20} className="text-green-600" />
-                       <span className="text-green-800 text-sm font-medium">上传成功：{uploadedFileName}</span>
+                       <div>
+                           <div className="text-green-800 text-sm font-bold">上传成功</div>
+                           <div className="text-green-600 text-xs">专家将在 24 小时内回复您的诊断报告。</div>
+                       </div>
                      </div>
                    )}
                 </div>
-              </div>
-
-              {/* Step 4: Expert Reply Window */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                 <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 font-bold text-sm">4</div>
-                    <h3 className="font-bold text-slate-800">专家回复窗口</h3>
-                 </div>
-                 <div className="p-6 min-h-[160px] flex flex-col justify-center">
-                    {uploadStatus === 'success' ? (
-                      <div className="text-center animate-fade-in">
-                        <div className="text-green-600 font-bold text-lg mb-1">已收到您的诊断材料</div>
-                        <p className="text-slate-500 text-sm mb-4">专家团队将在 24 小时内分析完毕。</p>
-                        
-                        <div className="bg-blue-50 p-4 rounded-lg text-left max-w-lg mx-auto border border-blue-100">
-                            <div className="flex items-start gap-3">
-                                <Mail className="text-blue-600 mt-1" size={18} />
-                                <div>
-                                    <p className="text-sm text-blue-900 font-medium">回复方式</p>
-                                    <p className="text-xs text-blue-700 mt-1">详细报告将发送至您的注册邮箱 ({currentUser?.email})，同时简报也会显示在此处。</p>
-                                </div>
-                            </div>
-                        </div>
-                      </div>
-                    ) : (
-                       <div className="text-center text-slate-400">
-                         <MessageSquare size={32} className="mx-auto mb-2 opacity-20" />
-                         <p className="text-sm">请先完成上方文件上传，专家回复将在此显示</p>
-                       </div>
-                    )}
-                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* ... (Modals code omitted for brevity as it remains unchanged) ... */}
-        {showResourceModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col animate-in zoom-in-95 relative overflow-hidden">
-                    <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                        <div>
-                            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                                <BookOpen className="text-blue-600" size={24} /> 专业诊断资源库
-                            </h3>
-                            <p className="text-sm text-slate-500 mt-1">请根据您的需求选择下载对应的工具模版</p>
-                        </div>
-                        <button onClick={() => setShowResourceModal(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600">
-                            <X size={24} />
-                        </button>
-                    </div>
-                    
-                    <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                            {knowledgeCategories.filter(c => c.section === 'diagnosis_tools').map(category => (
-                                <div key={category.id} className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-                                    <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2 pb-2 border-b border-slate-50">
-                                        <span className={`w-2 h-2 rounded-full bg-${category.color}-500`}></span>
-                                        {category.name}
-                                    </h4>
-                                    <div className="space-y-2">
-                                        {category.items.map((item, idx) => (
-                                            <ResourceItem 
-                                                key={idx} 
-                                                title={item.title} 
-                                                type={item.type} 
-                                                size={item.size} 
-                                                locked={false}
-                                                onClick={() => handleResourceDownload(item)} 
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {showPaymentGate && (
-           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col animate-in zoom-in-95 relative overflow-hidden">
-                 <button 
-                   onClick={() => setShowPaymentGate(false)}
-                   className="absolute top-4 right-4 p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 transition-colors z-10"
-                 >
-                   <X size={20} />
-                 </button>
-
-                 <div className="flex h-full flex-col md:flex-row">
-                    <div className="w-full md:w-2/5 bg-slate-900 text-white p-8 flex flex-col relative overflow-hidden">
-                       <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-3xl opacity-10 -mr-16 -mt-16"></div>
-                       <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600 rounded-full blur-3xl opacity-10 -ml-16 -mb-16"></div>
-                       
-                       <div className="relative z-10 flex flex-col h-full">
-                           <div className="mb-8">
-                              <div className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-yellow-500 to-amber-600 text-white rounded-full text-xs font-bold mb-6 shadow-lg shadow-orange-900/20 ring-1 ring-white/20">
-                                 <Crown size={14} className="fill-current" /> VIP 资源库
-                              </div>
-                              <h2 className="text-3xl font-bold leading-tight mb-4">解锁专业级<br/>管理工具库</h2>
-                              <p className="text-slate-400 text-sm leading-relaxed">
-                                 立即获取 50+ 份世界 500 强呼叫中心正在使用的标准化管理表格、流程图与 PPT 模版。
-                              </p>
-                           </div>
-                           
-                           <ul className="space-y-5 mb-8 flex-1">
-                              <li className="flex items-start gap-3 text-sm">
-                                 <div className="p-1 bg-green-500/20 rounded-full mt-0.5">
-                                    <CheckCircle size={14} className="text-green-400" />
-                                 </div>
-                                 <span className="text-slate-300">Erlang-C 排班计算器 (Excel)</span>
-                              </li>
-                              <li className="flex items-start gap-3 text-sm">
-                                 <div className="p-1 bg-green-500/20 rounded-full mt-0.5">
-                                    <CheckCircle size={14} className="text-green-400" />
-                                 </div>
-                                 <span className="text-slate-300">专家人工诊断服务通道</span>
-                              </li>
-                              <li className="flex items-start gap-3 text-sm">
-                                 <div className="p-1 bg-green-500/20 rounded-full mt-0.5">
-                                     <CheckCircle size={14} className="text-green-400" />
-                                 </div>
-                                 <span className="text-slate-300">核心人才盘点 9-Box 模型</span>
-                              </li>
-                               <li className="flex items-start gap-3 text-sm">
-                                 <div className="p-1 bg-green-500/20 rounded-full mt-0.5">
-                                     <CheckCircle size={14} className="text-green-400" />
-                                 </div>
-                                 <span className="text-slate-300">年度运营规划 PPT 模版</span>
-                              </li>
-                           </ul>
-
-                           <button 
-                              onClick={() => navigate(AppRoute.PLANS)}
-                              className="w-full py-4 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-slate-900 font-bold rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/25"
-                           >
-                              <Crown size={20} className="fill-slate-900" /> 
-                              立即升级解锁
-                           </button>
-                           <p className="text-center text-xs text-slate-500 mt-3">7天无理由退款保证</p>
-                       </div>
-                    </div>
-
-                    <div className="flex-1 bg-slate-50 flex flex-col overflow-hidden">
-                       <div className="p-6 border-b border-slate-200 bg-white flex justify-between items-center">
-                          <div>
-                            <h3 className="font-bold text-slate-800 text-lg">VIP 资源预览</h3>
-                            <p className="text-xs text-slate-500 mt-1">以下资源仅供 VIP 会员下载</p>
-                          </div>
-                          <div className="px-3 py-1 bg-slate-100 rounded-lg text-xs font-medium text-slate-500 flex items-center gap-1">
-                            <Lock size={12} />
-                            需升级
-                          </div>
-                       </div>
-                       <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
-                          {knowledgeCategories.filter(c => c.section === 'diagnosis_tools').map(category => (
-                             <div key={category.id}>
-                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <span className={`w-1.5 h-1.5 rounded-full bg-${category.color}-500`}></span>
-                                    {category.name}
-                                </h4>
-                                <div className="space-y-3">
-                                   {category.items.map((item, idx) => (
-                                      <ResourceItem key={idx} title={item.title} type={item.type} size={item.size} locked={true} />
-                                   ))}
-                                </div>
-                             </div>
-                          ))}
-                          <div className="sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none"></div>
-                       </div>
-                    </div>
-                 </div>
-              </div>
-           </div>
-        )}
-
       </div>
+      
+      {/* Resource Modal */}
+      {showResourceModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95">
+                  <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                      <h3 className="text-lg font-bold text-slate-900">专家诊断工具箱</h3>
+                      <button onClick={() => setShowResourceModal(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><X size={20} /></button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+                      <div className="space-y-6">
+                          {knowledgeCategories.filter(c => c.section === 'diagnosis_tools').map(cat => (
+                              <div key={cat.id}>
+                                  <h4 className={`text-sm font-bold text-${cat.color}-600 mb-3 uppercase tracking-wider flex items-center gap-2`}>
+                                      <div className={`w-2 h-2 rounded-full bg-${cat.color}-500`}></div>
+                                      {cat.name}
+                                  </h4>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                      {cat.items.map((item, idx) => (
+                                          <ResourceItem 
+                                            key={idx}
+                                            title={item.title} 
+                                            type={item.type} 
+                                            size={item.size}
+                                            locked={cat.requiredPlan === 'pro' && !hasPermission(currentUser, 'download_resources')}
+                                            onClick={() => handleResourceDownload(item)}
+                                          />
+                                      ))}
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Payment/Upgrade Gate Modal */}
+      {showPaymentGate && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white rounded-2xl w-full max-w-md p-8 text-center shadow-2xl animate-in zoom-in-95 relative border-t-4 border-yellow-400">
+                  <button onClick={() => setShowPaymentGate(false)} className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-full text-slate-400"><X size={20} /></button>
+                  <div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Crown size={32} className="fill-current" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-2">升级到专业版</h3>
+                  <p className="text-slate-500 mb-8 leading-relaxed">
+                      该功能仅对 PRO 会员开放。升级后您将解锁专家诊断通道、无限资源下载及高级数据分析权限。
+                  </p>
+                  
+                  <div className="space-y-3">
+                      <button 
+                        onClick={() => { setShowPaymentGate(false); navigate(AppRoute.PLANS); }}
+                        className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-colors shadow-lg shadow-slate-900/20"
+                      >
+                          立即升级
+                      </button>
+                      <button 
+                        onClick={() => setShowPaymentGate(false)}
+                        className="w-full py-3.5 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
+                      >
+                          暂不需要
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

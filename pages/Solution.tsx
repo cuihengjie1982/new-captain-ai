@@ -103,8 +103,8 @@ const Solution: React.FC = () => {
         </h2>
       </div>
 
-      {/* Course Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {/* Course Grid - Adjusted to max 3 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {filteredLessons.length === 0 ? (
           <div className="col-span-full text-center py-20 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
             <div className="text-slate-400 mb-2">该分类下暂无课程</div>
@@ -135,8 +135,8 @@ const Solution: React.FC = () => {
 
                 {/* Play Overlay */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                   <div className="w-12 h-12 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg transform scale-75 group-hover:scale-100 transition-transform">
-                     <Play size={20} className="text-blue-600 fill-current ml-1" />
+                   <div className="w-14 h-14 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg transform scale-75 group-hover:scale-100 transition-transform">
+                     <Play size={24} className="text-blue-600 fill-current ml-1" />
                    </div>
                 </div>
               </div>
@@ -146,30 +146,30 @@ const Solution: React.FC = () => {
                 <div className="flex justify-between items-start mb-3">
                    {/* Category Badge */}
                    {lesson.category ? (
-                     <span className="inline-block px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
+                     <span className="inline-block px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
                        {lesson.category}
                      </span>
                    ) : (
-                     <span className="inline-block px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100">
+                     <span className="inline-block px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100">
                        视频课程
                      </span>
                    )}
                    
                    <button className="text-slate-300 hover:text-slate-500 p-1 rounded-full hover:bg-slate-50">
-                     <MoreHorizontal size={16} />
+                     <MoreHorizontal size={18} />
                    </button>
                 </div>
                 
-                <h3 className="font-bold text-slate-900 leading-tight mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                <h3 className="text-lg font-bold text-slate-900 leading-tight mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
                   {lesson.title}
                 </h3>
 
                 <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between text-xs text-slate-500">
                   <div className="flex items-center gap-1">
-                     <Star size={12} className="text-yellow-400 fill-current" />
-                     <span>4.9</span>
+                     <Star size={14} className="text-yellow-400 fill-current" />
+                     <span className="font-medium">4.9</span>
                   </div>
-                  <span className="text-blue-600 font-medium group-hover:underline flex items-center gap-1">
+                  <span className="text-blue-600 font-bold group-hover:underline flex items-center gap-1">
                     开始学习
                   </span>
                 </div>
@@ -183,3 +183,4 @@ const Solution: React.FC = () => {
 };
 
 export default Solution;
+    

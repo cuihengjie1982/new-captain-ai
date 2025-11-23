@@ -13,10 +13,13 @@ const getAIClient = () => {
 
 // Configuration for available AI Models
 export const AI_MODELS = [
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+  { id: 'deepseek-r1', name: 'DeepSeek R1' },
+  { id: 'glm-4-6', name: 'GLM 4.6' },
+  { id: 'kimi-2', name: 'KIMI 2' },
+  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
   { id: 'gemini-3-pro', name: 'Gemini 3.0 Pro' },
-  { id: 'gpt-4o', name: 'GPT-4o (OpenAI)' },
-  { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet' }
+  { id: 'claude-4-5-sonnet', name: 'Claude 4.5 Sonnet' },
+  { id: 'grok-4', name: 'Grok 4' }
 ];
 
 export const createChatSession = (): Chat | null => {

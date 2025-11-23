@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MoreHorizontal, ThumbsUp, MessageSquare, Send, CheckSquare, BookOpen, MessageCircle, X, PenTool, Loader2, Sparkles, User as UserIcon, Clock, Heart, Quote, Bot } from 'lucide-react';
@@ -41,13 +42,15 @@ const BlogDetail: React.FC = () => {
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
+    const storedUserStr = localStorage.getItem('captainUser');
+    const storedUser = storedUserStr ? JSON.parse(storedUserStr) : null;
+    if (storedUser) {
+      setCurrentUser(storedUser);
+    }
+
     if (id) {
       setComments(getComments(id));
-      saveReadArticle(id); 
-    }
-    const storedUser = localStorage.getItem('captainUser');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
+      saveReadArticle(id, storedUser?.id); // Pass userId
     }
     
     chatSessionRef.current = createChatSession();
@@ -173,7 +176,7 @@ const BlogDetail: React.FC = () => {
     // AI Context Construction
     const categories = getKnowledgeCategories();
     const aiLibContent = categories
-      .filter(c => c.isAiRepository)
+      .filter(c => c.section === 'ai_reply') // Updated filtering logic
       .flatMap(c => c.items.map(i => `- ${i.title}`))
       .join('\n');
 
@@ -255,7 +258,8 @@ const BlogDetail: React.FC = () => {
         content: noteInput,
         quote: currentQuote || undefined,
         createdAt: now,
-        userName: currentUser.name
+        userName: currentUser.name,
+        userId: currentUser.id // Link note to user
     };
     setNotes([newNote, ...notes]);
 
@@ -268,6 +272,7 @@ const BlogDetail: React.FC = () => {
             timestampDisplay: '文章摘录',
             createdAt: now,
             userName: currentUser.name || 'Guest User',
+            userId: currentUser.id, // Link to user
             sourceType: 'article',
             sourceId: post.id
         };

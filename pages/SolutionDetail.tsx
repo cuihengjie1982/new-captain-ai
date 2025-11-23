@@ -86,7 +86,10 @@ const SolutionDetail: React.FC = () => {
       setDisplayedHighlights(currentLesson.highlights || []);
       setHighlightInput('');
       setSelectionMenu(null);
-      saveWatchedLesson(currentLesson.id); // Track history
+      // Track history with user ID if available
+      const storedUser = localStorage.getItem('captainUser');
+      const userId = storedUser ? JSON.parse(storedUser).id : undefined;
+      saveWatchedLesson(currentLesson.id, userId); 
     }
   }, [currentLessonId, currentLesson]);
 
@@ -209,7 +212,8 @@ const SolutionDetail: React.FC = () => {
       id: Date.now().toString(),
       timestamp: currentTime,
       content: content,
-      quote: currentQuote || undefined
+      quote: currentQuote || undefined,
+      userId: currentUser?.id // Link to user
     };
     setNotes([newNote, ...notes]);
 
@@ -222,7 +226,10 @@ const SolutionDetail: React.FC = () => {
       lessonTitle: currentLesson.title,
       timestampDisplay: formatTime(currentTime),
       createdAt: new Date().toLocaleString('zh-CN'),
-      userName: currentUserData.name || 'Guest User'
+      userName: currentUserData.name || 'Guest User',
+      userId: currentUserData.id, // Link to user
+      sourceType: 'video', // Video note
+      sourceId: currentLesson.id
     };
     saveAdminNote(adminNote);
 

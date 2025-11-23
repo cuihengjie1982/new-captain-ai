@@ -1,4 +1,5 @@
 
+
 export interface User {
   id: string;
   name: string;
@@ -19,7 +20,6 @@ export interface BlogPost {
   date: string;
   author: string;
   content: string; // HTML content for the article
-  tags?: string[]; // New: Multi-tags
   originalUrl?: string; // New: Import source URL
   requiredPlan?: 'free' | 'pro'; // NEW: Access Control
 }
@@ -27,9 +27,19 @@ export interface BlogPost {
 export interface IntroVideo {
   id: string;
   title: string;
+  sourceType: 'link' | 'upload'; // New: Source Type
   url: string;
   thumbnail: string;
   isVisible: boolean;
+  duration?: string; // New: Duration display
+  lastUpdated?: string; // New: Last update timestamp
+}
+
+// New: Configuration for the Diagnosis Widget Text on Blog Page
+export interface DiagnosisWidgetConfig {
+  title: string;
+  description: string;
+  highlightText?: string; // E.g., "Smart Diagnosis Tool"
 }
 
 // New Interface for About Us Section
@@ -48,6 +58,7 @@ export interface Note {
   quote?: string; // Selected text from source
   createdAt?: string; // Added for display
   userName?: string; // Added for display
+  userId?: string; // Added for linking to user
 }
 
 export interface KPIRecord {
@@ -111,13 +122,16 @@ export interface KnowledgeItem {
   url?: string; // New: File URL
 }
 
+export type KnowledgeSectionType = 'ai_reply' | 'diagnosis_tools' | 'project_reports';
+
 export interface KnowledgeCategory {
   id: string;
-  name: string;
+  name: string; // This serves as the "Level 2" directory name
   color: string;
   items: KnowledgeItem[];
-  isAiRepository?: boolean; // Added to distinguish AI Reply Library
-  isProjectReports?: boolean; // Added for Dashboard Project Reports
+  section: KnowledgeSectionType; // New: Level 1 Directory classification
+  isAiRepository?: boolean; // Deprecated, use section='ai_reply'
+  isProjectReports?: boolean; // Deprecated, use section='project_reports'
   requiredPlan?: 'free' | 'pro'; // NEW: Access Control
 }
 
@@ -164,6 +178,7 @@ export interface UserUpload {
   status: 'pending' | 'analyzing' | 'completed';
   userName: string;
   userEmail?: string;
+  userId?: string; // Added for linking to user
 }
 
 export interface AdminNote {
@@ -174,18 +189,23 @@ export interface AdminNote {
   timestampDisplay: string; // Used for timestamp OR context (e.g. "Section 1")
   createdAt: string;
   userName: string;
+  userId?: string; // Added for linking to user
   sourceType?: 'video' | 'article'; // New field to distinguish source
   sourceId?: string; // ID of the video or article
+  reply?: string; // Admin reply content
+  replyAt?: string; // Admin reply timestamp
 }
 
 // User History Interface
 export interface WatchedLesson {
+  userId?: string; // Added for linking to user
   lessonId: string;
   watchedAt: string;
   progress: number; // 0-100
 }
 
 export interface ReadArticle {
+  userId?: string; // Added for linking to user
   articleId: string;
   readAt: string;
 }
@@ -196,6 +216,16 @@ export interface DiagnosisIssue {
   title: string;       // Dropdown Label
   userText: string;    // Simulated User Message
   aiResponse: string;  // Initial AI Response
+}
+
+// New Interface for User Submitted Diagnosis
+export interface DiagnosisSubmission {
+  id: string;
+  selectedIssues: string[]; // List of titles
+  customIssue?: string;     // Text for "Other"
+  submittedAt: string;
+  user?: string; // Name or "Guest"
+  userId?: string; // Added for linking
 }
 
 // New Interface for Blog Comments
@@ -264,6 +294,24 @@ export interface BusinessLead {
   email: string;
   submittedAt: string;
   status: 'new' | 'contacted';
+}
+
+// NEW: Plans Page Configuration
+export interface PlanFeature {
+  text: string;
+  icon: 'Video' | 'Zap' | 'Check' | 'ArrowUpRight' | 'FileText' | 'Star';
+}
+
+export interface PlanDetail {
+  title: string;
+  subtitle: string;
+  buttonText: string;
+  features: PlanFeature[];
+}
+
+export interface PlansPageConfig {
+  free: PlanDetail;
+  pro: PlanDetail;
 }
 
 export enum AppRoute {

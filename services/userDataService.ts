@@ -1,5 +1,6 @@
 
-import { UserUpload, AdminNote, WatchedLesson, ReadArticle, User, EmailLog, BusinessLead } from '../types';
+
+import { UserUpload, AdminNote, WatchedLesson, ReadArticle, User, EmailLog, BusinessLead, DiagnosisSubmission } from '../types';
 
 const UPLOADS_KEY = 'captain_user_uploads';
 const NOTES_KEY = 'captain_admin_notes';
@@ -8,6 +9,7 @@ const ARTICLE_HISTORY_KEY = 'captain_read_articles';
 const USERS_DB_KEY = 'captain_users_db';
 const EMAIL_LOGS_KEY = 'captain_email_logs';
 const LEADS_KEY = 'captain_business_leads';
+const DIAGNOSIS_SUBMISSIONS_KEY = 'captain_diagnosis_submissions';
 
 // Mock Data for Uploads
 const MOCK_UPLOADS: UserUpload[] = [
@@ -19,7 +21,8 @@ const MOCK_UPLOADS: UserUpload[] = [
     uploadDate: '2024-05-20 14:30',
     status: 'completed',
     userName: '张经理',
-    userEmail: 'zhang@example.com'
+    userEmail: 'zhang@example.com',
+    userId: 'u1'
   },
   {
     id: 'u2',
@@ -29,7 +32,8 @@ const MOCK_UPLOADS: UserUpload[] = [
     uploadDate: '2024-05-21 09:15',
     status: 'pending',
     userName: '李主管',
-    userEmail: 'li@example.com'
+    userEmail: 'li@example.com',
+    userId: 'u2'
   }
 ];
 
@@ -91,6 +95,15 @@ export const saveAdminNote = (note: AdminNote): void => {
   localStorage.setItem(NOTES_KEY, JSON.stringify(items));
 };
 
+export const updateAdminNote = (note: AdminNote): void => {
+  const items = getAdminNotes();
+  const idx = items.findIndex(n => n.id === note.id);
+  if (idx >= 0) {
+    items[idx] = note;
+    localStorage.setItem(NOTES_KEY, JSON.stringify(items));
+  }
+};
+
 export const deleteAdminNote = (id: string): void => {
   const items = getAdminNotes();
   const newItems = items.filter(i => i.id !== id);
@@ -107,25 +120,28 @@ export const getWatchedHistory = (): WatchedLesson[] => {
   
   // Mock some history
   const mockHistory: WatchedLesson[] = [
-     { lessonId: '1', watchedAt: '2024-05-20 10:30', progress: 85 },
-     { lessonId: '2', watchedAt: '2024-05-18 15:20', progress: 40 }
+     { userId: 'u1', lessonId: '1', watchedAt: '2024-05-20 10:30', progress: 85 },
+     { userId: 'u1', lessonId: '2', watchedAt: '2024-05-18 15:20', progress: 40 },
+     { userId: 'u2', lessonId: '1', watchedAt: '2024-05-19 11:00', progress: 10 }
   ];
   localStorage.setItem(HISTORY_KEY, JSON.stringify(mockHistory));
   return mockHistory;
 };
 
-export const saveWatchedLesson = (lessonId: string): void => {
+export const saveWatchedLesson = (lessonId: string, userId?: string): void => {
   const history = getWatchedHistory();
-  const existingIdx = history.findIndex(h => h.lessonId === lessonId);
+  // Find record for this user and lesson
+  const existingIdx = history.findIndex(h => h.lessonId === lessonId && (userId ? h.userId === userId : true));
   
   const newItem: WatchedLesson = {
+    userId,
     lessonId,
     watchedAt: new Date().toLocaleString('zh-CN', { hour12: false }),
     progress: Math.floor(Math.random() * 30) + 70 // Mock progress
   };
 
   if (existingIdx >= 0) {
-    history[existingIdx] = newItem; // Update timestamp
+    history[existingIdx] = { ...newItem, progress: Math.max(history[existingIdx].progress, newItem.progress) }; // Update timestamp
   } else {
     history.unshift(newItem);
   }
@@ -139,14 +155,20 @@ export const getReadHistory = (): ReadArticle[] => {
     const stored = localStorage.getItem(ARTICLE_HISTORY_KEY);
     if (stored) return JSON.parse(stored);
   } catch (e) { console.error(e); }
-  return [];
+  
+  const mockHistory: ReadArticle[] = [
+     { userId: 'u1', articleId: '1', readAt: '2024-05-20 09:30' },
+  ];
+  localStorage.setItem(ARTICLE_HISTORY_KEY, JSON.stringify(mockHistory));
+  return mockHistory;
 };
 
-export const saveReadArticle = (articleId: string): void => {
+export const saveReadArticle = (articleId: string, userId?: string): void => {
   const history = getReadHistory();
-  const existingIdx = history.findIndex(h => h.articleId === articleId);
+  const existingIdx = history.findIndex(h => h.articleId === articleId && (userId ? h.userId === userId : true));
   
   const newItem: ReadArticle = {
+    userId,
     articleId,
     readAt: new Date().toLocaleString('zh-CN', { hour12: false, month: 'numeric', day: 'numeric' }),
   };
@@ -218,6 +240,43 @@ export const saveBusinessLead = (lead: BusinessLead): void => {
     const leads = getBusinessLeads();
     leads.unshift(lead);
     localStorage.setItem(LEADS_KEY, JSON.stringify(leads));
+};
+
+export const updateBusinessLeadStatus = (id: string, status: 'new' | 'contacted'): void => {
+    const leads = getBusinessLeads();
+    const idx = leads.findIndex(l => l.id === id);
+    if (idx >= 0) {
+        leads[idx].status = status;
+        localStorage.setItem(LEADS_KEY, JSON.stringify(leads));
+    }
+};
+
+export const deleteBusinessLead = (id: string): void => {
+    const leads = getBusinessLeads();
+    const newLeads = leads.filter(l => l.id !== id);
+    localStorage.setItem(LEADS_KEY, JSON.stringify(newLeads));
+};
+
+// --- Diagnosis Submissions Logic ---
+
+export const getDiagnosisSubmissions = (): DiagnosisSubmission[] => {
+    try {
+        const stored = localStorage.getItem(DIAGNOSIS_SUBMISSIONS_KEY);
+        if (stored) return JSON.parse(stored);
+    } catch(e) { console.error(e); }
+    return [];
+};
+
+export const saveDiagnosisSubmission = (submission: DiagnosisSubmission): void => {
+    const subs = getDiagnosisSubmissions();
+    subs.unshift(submission);
+    localStorage.setItem(DIAGNOSIS_SUBMISSIONS_KEY, JSON.stringify(subs));
+};
+
+export const deleteDiagnosisSubmission = (id: string): void => {
+    const subs = getDiagnosisSubmissions();
+    const newSubs = subs.filter(s => s.id !== id);
+    localStorage.setItem(DIAGNOSIS_SUBMISSIONS_KEY, JSON.stringify(newSubs));
 };
 
 // --- Email Verification Logic (Simulation) ---

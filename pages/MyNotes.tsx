@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppRoute, AdminNote } from '../types';
-import { Search, Video, FileText, Settings, Zap, MessageSquare, Clock, BookOpen, Quote } from 'lucide-react';
+import { Search, Video, FileText, Settings, Zap, MessageSquare, Clock, BookOpen, Quote, User as UserIcon } from 'lucide-react';
 import { getAdminNotes } from '../services/userDataService';
 
 const MyNotes: React.FC = () => {
@@ -121,6 +121,19 @@ const MyNotes: React.FC = () => {
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">
                            {note.content}
                         </div>
+
+                        {note.reply && (
+                            <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl relative">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                                        <UserIcon size={14} className="text-white" />
+                                    </div>
+                                    <span className="text-xs font-bold text-blue-800">管理员回复</span>
+                                    <span className="text-xs text-blue-400 ml-auto">{note.replyAt}</span>
+                                </div>
+                                <p className="text-sm text-blue-900 leading-relaxed">{note.reply}</p>
+                            </div>
+                        )}
                         
                         <div className="mt-4 text-xs text-slate-400 flex items-center gap-1">
                            <Clock size={12} /> {note.createdAt}

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AppRoute, KnowledgeCategory, UserUpload, User, KnowledgeItem } from '../types';
@@ -645,7 +646,7 @@ const Diagnosis: React.FC = () => {
                     
                     <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                            {knowledgeCategories.filter(c => !c.isAiRepository && !c.isProjectReports).map(category => (
+                            {knowledgeCategories.filter(c => c.section === 'diagnosis_tools').map(category => (
                                 <div key={category.id} className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
                                     <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2 pb-2 border-b border-slate-50">
                                         <span className={`w-2 h-2 rounded-full bg-${category.color}-500`}></span>
@@ -747,7 +748,7 @@ const Diagnosis: React.FC = () => {
                           </div>
                        </div>
                        <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
-                          {knowledgeCategories.filter(c => !c.isAiRepository && !c.isProjectReports).map(category => (
+                          {knowledgeCategories.filter(c => c.section === 'diagnosis_tools').map(category => (
                              <div key={category.id}>
                                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                                     <span className={`w-1.5 h-1.5 rounded-full bg-${category.color}-500`}></span>

@@ -1,13 +1,16 @@
 
-import { BlogPost, IntroVideo, DiagnosisIssue, BlogPostComment, CommentReply, User, AboutUsInfo, BusinessContactInfo } from '../types';
+
+import { BlogPost, IntroVideo, DiagnosisIssue, BlogPostComment, CommentReply, User, AboutUsInfo, BusinessContactInfo, DiagnosisWidgetConfig, PlansPageConfig } from '../types';
 
 const STORAGE_KEY = 'captain_blog_posts';
 const INTRO_VIDEO_KEY = 'captain_intro_video';
 const DIAGNOSIS_ISSUES_KEY = 'captain_diagnosis_issues';
+const DIAGNOSIS_WIDGET_KEY = 'captain_diagnosis_widget_config';
 const COMMENTS_KEY = 'captain_blog_comments';
 const PAYMENT_QR_KEY = 'captain_payment_qr';
 const ABOUT_US_KEY = 'captain_about_us';
 const BUSINESS_CONTACT_KEY = 'captain_business_contact';
+const PLANS_CONFIG_KEY = 'captain_plans_config';
 
 const DEFAULT_POSTS: BlogPost[] = [
   {
@@ -80,9 +83,18 @@ const DEFAULT_POSTS: BlogPost[] = [
 const DEFAULT_INTRO_VIDEO: IntroVideo = {
   id: 'intro-default',
   title: 'Captain AI 平台价值演示',
-  url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4', // Sample video
+  sourceType: 'link',
+  url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4', 
   thumbnail: 'https://picsum.photos/1280/720?random=99',
-  isVisible: true
+  isVisible: true,
+  duration: '02:30',
+  lastUpdated: '2024-05-20 10:00'
+};
+
+const DEFAULT_DIAGNOSIS_WIDGET: DiagnosisWidgetConfig = {
+  title: '您在苦恼些什么？',
+  description: '不要等到更加恶化了才发现问题。填写右侧表单，AI 和专家团队将立即为您分析团队现状并提供解决方案。',
+  highlightText: '智能诊断工具'
 };
 
 const DEFAULT_DIAGNOSIS_ISSUES: DiagnosisIssue[] = [
@@ -160,6 +172,31 @@ const DEFAULT_BUSINESS_CONTACT: BusinessContactInfo = {
     contactPerson: '客户经理',
     contactMethod: '188-8888-8888',
     email: 'business@captain.ai'
+};
+
+const DEFAULT_PLANS_CONFIG: PlansPageConfig = {
+  free: {
+    title: '免费版',
+    subtitle: '适合个人学习与体验',
+    buttonText: '当前计划',
+    features: [
+      { text: '基础视频课程', icon: 'Video' },
+      { text: 'AI 博客助手 (有限)', icon: 'Zap' },
+      { text: '基础笔记功能', icon: 'Check' }
+    ]
+  },
+  pro: {
+    title: '专业版 PRO',
+    subtitle: '企业级权限',
+    buttonText: '联系商务升级',
+    features: [
+      { text: '解锁全部 50+ 高级课程', icon: 'Video' },
+      { text: '专家级 AI 诊断与方案', icon: 'Zap' },
+      { text: '导出课程字幕与PPT', icon: 'ArrowUpRight' },
+      { text: '无限下载专业报表模版', icon: 'FileText' },
+      { text: '优先人工专家支持通道', icon: 'ArrowUpRight' }
+    ]
+  }
 };
 
 // Mock Comments Data
@@ -260,6 +297,19 @@ export const deleteIntroVideo = (): void => {
   localStorage.setItem(INTRO_VIDEO_KEY, JSON.stringify(hiddenVideo));
 };
 
+// --- Diagnosis Widget Config Methods ---
+export const getDiagnosisWidgetConfig = (): DiagnosisWidgetConfig => {
+    try {
+        const stored = localStorage.getItem(DIAGNOSIS_WIDGET_KEY);
+        if(stored) return JSON.parse(stored);
+    } catch(e) { console.error(e); }
+    return DEFAULT_DIAGNOSIS_WIDGET;
+};
+
+export const saveDiagnosisWidgetConfig = (config: DiagnosisWidgetConfig): void => {
+    localStorage.setItem(DIAGNOSIS_WIDGET_KEY, JSON.stringify(config));
+};
+
 // --- Diagnosis Issues Methods ---
 
 export const getDiagnosisIssues = (): DiagnosisIssue[] => {
@@ -324,6 +374,20 @@ export const getBusinessContactInfo = (): BusinessContactInfo => {
 
 export const saveBusinessContactInfo = (info: BusinessContactInfo): void => {
   localStorage.setItem(BUSINESS_CONTACT_KEY, JSON.stringify(info));
+};
+
+// --- Plans Page Config Methods ---
+
+export const getPlansPageConfig = (): PlansPageConfig => {
+  try {
+    const stored = localStorage.getItem(PLANS_CONFIG_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch (e) { console.error(e); }
+  return DEFAULT_PLANS_CONFIG;
+};
+
+export const savePlansPageConfig = (config: PlansPageConfig): void => {
+  localStorage.setItem(PLANS_CONFIG_KEY, JSON.stringify(config));
 };
 
 // --- Comment Management Methods ---

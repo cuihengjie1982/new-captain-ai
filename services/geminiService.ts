@@ -11,6 +11,14 @@ const getAIClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
+// Configuration for available AI Models
+export const AI_MODELS = [
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+  { id: 'gemini-3-pro', name: 'Gemini 3.0 Pro' },
+  { id: 'gpt-4o', name: 'GPT-4o (OpenAI)' },
+  { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet' }
+];
+
 export const createChatSession = (): Chat | null => {
   const ai = getAIClient();
   if (!ai) return null;

@@ -1,15 +1,16 @@
 
+
 import { KnowledgeCategory } from '../types';
 
-const STORAGE_KEY = 'captain_resources_v2';
+const STORAGE_KEY = 'captain_resources_v3';
 
 const DEFAULT_RESOURCES: KnowledgeCategory[] = [
-  // AI Repository Item
+  // AI Repository Item (Level 1: ai_reply)
   {
     id: 'ai-lib-1', 
-    name: 'AI 智能回复附件库', 
+    name: '通用知识库附件', 
     color: 'violet',
-    isAiRepository: true,
+    section: 'ai_reply',
     requiredPlan: 'pro',
     items: [
        { title: "标准诊断报告模版.docx", type: "doc", size: "1.2 MB", tags: ["AI生成", "报告"] },
@@ -17,12 +18,12 @@ const DEFAULT_RESOURCES: KnowledgeCategory[] = [
        { title: "自动化数据采集脚本.xlsx", type: "xlsx", size: "45 KB", tags: ["脚本", "工具"] }
     ]
   },
-  // Project Improvement Reports (New Category)
+  // Project Improvement Reports (Level 1: project_reports)
   {
-    id: 'project-reports', 
-    name: '项目改善报告库', 
+    id: 'project-reports-1', 
+    name: '年度改善项目归档', 
     color: 'rose',
-    isProjectReports: true,
+    section: 'project_reports',
     requiredPlan: 'pro',
     items: [
        { title: "Q3_核心骨干留存_行动计划_v2.pdf", type: "pdf", size: "2.4 MB", tags: ["Q3", "留存"] },
@@ -33,9 +34,9 @@ const DEFAULT_RESOURCES: KnowledgeCategory[] = [
        { title: "AHT项目_复盘会议记录.doc", type: "doc", size: "0.9 MB", tags: ["复盘"] }
     ]
   },
-  // General Resources
+  // Diagnostic Tools (Level 1: diagnosis_tools)
   {
-    id: '1', name: '核心人才留存', color: 'blue', requiredPlan: 'free',
+    id: '1', name: '核心人才留存', color: 'blue', section: 'diagnosis_tools', requiredPlan: 'free',
     items: [
        { title: "离职倾向调查问卷", type: "xlsx", size: "45 KB", tags: ["调查", "HR"] },
        { title: "核心骨干盘点表 (9-Box)", type: "xlsx", size: "32 KB", tags: ["九宫格", "盘点"] },
@@ -44,7 +45,7 @@ const DEFAULT_RESOURCES: KnowledgeCategory[] = [
     ]
   },
   {
-    id: '2', name: '薪酬与绩效', color: 'emerald', requiredPlan: 'pro',
+    id: '2', name: '薪酬与绩效', color: 'emerald', section: 'diagnosis_tools', requiredPlan: 'pro',
     items: [
        { title: "薪资竞争力分析计算器", type: "xlsx", size: "156 KB", tags: ["薪资", "计算器"] },
        { title: "绩效奖金测算工具", type: "xlsx", size: "88 KB", tags: ["绩效", "工具"] },
@@ -52,7 +53,7 @@ const DEFAULT_RESOURCES: KnowledgeCategory[] = [
     ]
   },
   {
-    id: '3', name: '管理与辅导', color: 'orange', requiredPlan: 'free',
+    id: '3', name: '管理与辅导', color: 'orange', section: 'diagnosis_tools', requiredPlan: 'free',
     items: [
        { title: "1对1辅导标准化手册", type: "ppt", size: "5.4 MB", tags: ["辅导", "手册"] },
        { title: "GROW模型教练卡", type: "pdf", size: "2.1 MB", tags: ["GROW", "教练"] },
@@ -60,7 +61,7 @@ const DEFAULT_RESOURCES: KnowledgeCategory[] = [
     ]
   },
   {
-    id: '4', name: '高绩效人员画像', color: 'purple', requiredPlan: 'pro',
+    id: '4', name: '高绩效人员画像', color: 'purple', section: 'diagnosis_tools', requiredPlan: 'pro',
     items: [
        { title: "胜任力模型构建指南", type: "pdf", size: "3.2 MB", tags: ["胜任力", "模型"] },
        { title: "明星员工访谈提纲", type: "doc", size: "45 KB", tags: ["访谈", "招聘"] },
@@ -68,7 +69,7 @@ const DEFAULT_RESOURCES: KnowledgeCategory[] = [
     ]
   },
   {
-    id: '5', name: '培训效果评估', color: 'pink', requiredPlan: 'free',
+    id: '5', name: '培训效果评估', color: 'pink', section: 'diagnosis_tools', requiredPlan: 'free',
     items: [
        { title: "柯氏四级评估模型", type: "ppt", size: "2.8 MB", tags: ["评估", "柯氏"] },
        { title: "培训ROI计算器", type: "xlsx", size: "92 KB", tags: ["ROI", "计算器"] },
@@ -76,7 +77,7 @@ const DEFAULT_RESOURCES: KnowledgeCategory[] = [
     ]
   },
   {
-    id: '6', name: '预测与人员匹配', color: 'indigo', requiredPlan: 'pro',
+    id: '6', name: '预测与人员匹配', color: 'indigo', section: 'diagnosis_tools', requiredPlan: 'pro',
     items: [
        { title: "Erlang-C排班计算器", type: "xlsx", size: "450 KB", tags: ["排班", "Erlang-C"] },
        { title: "话务量预测模型", type: "xlsx", size: "210 KB", tags: ["预测", "模型"] },
@@ -84,7 +85,7 @@ const DEFAULT_RESOURCES: KnowledgeCategory[] = [
     ]
   },
   {
-    id: '7', name: '客户体验评估', color: 'cyan', requiredPlan: 'free',
+    id: '7', name: '客户体验评估', color: 'cyan', section: 'diagnosis_tools', requiredPlan: 'free',
     items: [
        { title: "客户旅程地图模板", type: "ppt", size: "6.5 MB", tags: ["旅程地图", "体验"] },
        { title: "NPS/CSAT驱动因素分析", type: "xlsx", size: "180 KB", tags: ["NPS", "分析"] },
@@ -92,21 +93,21 @@ const DEFAULT_RESOURCES: KnowledgeCategory[] = [
     ]
   },
   {
-    id: '8', name: '质量评估', color: 'teal', requiredPlan: 'free',
+    id: '8', name: '质量评估', color: 'teal', section: 'diagnosis_tools', requiredPlan: 'free',
     items: [
        { title: "QA评分标准表(COPC参考)", type: "xlsx", size: "115 KB", tags: ["QA", "评分"] },
        { title: "质检校准(Calibration)记录", type: "xlsx", size: "78 KB", tags: ["校准", "质检"] }
     ]
   },
   {
-    id: '9', name: '指标波动管理', color: 'rose', requiredPlan: 'pro',
+    id: '9', name: '指标波动管理', color: 'rose', section: 'diagnosis_tools', requiredPlan: 'pro',
     items: [
        { title: "KPI异常波动鱼骨图", type: "ppt", size: "1.5 MB", tags: ["鱼骨图", "KPI"] },
        { title: "指标复盘报告模板", type: "doc", size: "55 KB", tags: ["复盘", "报告"] }
     ]
   },
   {
-    id: '10', name: '成本效率评估', color: 'slate', requiredPlan: 'pro',
+    id: '10', name: '成本效率评估', color: 'slate', section: 'diagnosis_tools', requiredPlan: 'pro',
     items: [
        { title: "单次联络成本(CPC)模型", type: "xlsx", size: "130 KB", tags: ["CPC", "成本"] },
        { title: "运营效率仪表盘", type: "xlsx", size: "240 KB", tags: ["仪表盘", "效率"] },

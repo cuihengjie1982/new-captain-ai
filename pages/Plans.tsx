@@ -1,9 +1,10 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AppRoute, User, BusinessContactInfo } from '../types';
-import { Video, FileText, Settings, Zap, Check, ArrowUpRight, X, QrCode, Mail, Phone, User as UserIcon, Building2, Smartphone, Briefcase, Image } from 'lucide-react';
-import { getPaymentQRCode, getBusinessContactInfo } from '../services/contentService';
+import { AppRoute, User, BusinessContactInfo, PlansPageConfig, PlanFeature } from '../types';
+import { Video, FileText, Settings, Zap, Check, ArrowUpRight, X, QrCode, Mail, Phone, User as UserIcon, Building2, Smartphone, Briefcase, Image, Star } from 'lucide-react';
+import { getPaymentQRCode, getBusinessContactInfo, getPlansPageConfig } from '../services/contentService';
 import { saveBusinessLead } from '../services/userDataService';
 
 const Plans: React.FC = () => {
@@ -12,6 +13,7 @@ const Plans: React.FC = () => {
   const [showContactModal, setShowContactModal] = useState(false);
   const [qrCode, setQrCode] = useState('');
   const [businessInfo, setBusinessInfo] = useState<BusinessContactInfo | null>(null);
+  const [plansConfig, setPlansConfig] = useState<PlansPageConfig | null>(null);
   
   // Form State
   const [contactForm, setContactForm] = useState({ name: '', position: '', company: '', phone: '', email: '' });
@@ -32,6 +34,7 @@ const Plans: React.FC = () => {
     }
     setQrCode(getPaymentQRCode());
     setBusinessInfo(getBusinessContactInfo());
+    setPlansConfig(getPlansPageConfig());
   }, []);
 
   // Reset form state when modal closes
@@ -70,6 +73,20 @@ const Plans: React.FC = () => {
     setIsSubmitted(true);
   };
 
+  const getIcon = (iconName: string) => {
+      switch(iconName) {
+          case 'Video': return <Video size={18} />;
+          case 'Zap': return <Zap size={18} />;
+          case 'Check': return <Check size={18} />;
+          case 'ArrowUpRight': return <ArrowUpRight size={18} />;
+          case 'FileText': return <FileText size={18} />;
+          case 'Star': return <Star size={18} />;
+          default: return <Check size={18} />;
+      }
+  };
+
+  if (!plansConfig) return null;
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto relative">
       <header className="mb-8 text-center">
@@ -102,24 +119,20 @@ const Plans: React.FC = () => {
             <h3 className="text-2xl font-bold text-slate-900 mb-6">免费版</h3>
             
             <div className="mb-8">
-               <h2 className="text-4xl font-bold text-slate-900 mb-2">免费</h2>
-               <p className="text-slate-500 text-sm">适合个人学习与体验</p>
+               <h2 className="text-4xl font-bold text-slate-900 mb-2">{plansConfig.free.title}</h2>
+               <p className="text-slate-500 text-sm">{plansConfig.free.subtitle}</p>
             </div>
 
             <ul className="space-y-4 mb-8 flex-1">
-               <li className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                  <Video size={18} /> 基础视频课程
-               </li>
-               <li className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                  <Zap size={18} /> AI 博客助手 (有限)
-               </li>
-               <li className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                  <Check size={18} /> 基础笔记功能
-               </li>
+               {plansConfig.free.features.map((feature, idx) => (
+                   <li key={idx} className="flex items-center gap-3 text-sm font-medium text-slate-700">
+                      {getIcon(feature.icon)} {feature.text}
+                   </li>
+               ))}
             </ul>
 
             <button disabled={true} className="w-full py-3 bg-slate-200 text-slate-500 font-bold rounded-xl cursor-default">
-               {!user || user?.plan === 'free' ? '当前计划' : '已包含'}
+               {!user || user?.plan === 'free' ? plansConfig.free.buttonText : '已包含'}
             </button>
          </div>
 
@@ -129,34 +142,22 @@ const Plans: React.FC = () => {
                推荐
             </div>
             <div className="flex justify-between items-center mb-6">
-               <h3 className="text-2xl font-bold text-slate-900">专业版 PRO</h3>
+               <h3 className="text-2xl font-bold text-slate-900">专业版</h3>
             </div>
             
             <div className="mb-8">
                <div className="flex items-baseline gap-2">
-                  <h2 className="text-2xl font-bold text-slate-900">企业级权限</h2>
+                  <h2 className="text-2xl font-bold text-slate-900">{plansConfig.pro.title}</h2>
                </div>
-               <p className="text-slate-500 text-sm mt-2">请联系商务开通</p>
+               <p className="text-slate-500 text-sm mt-2">{plansConfig.pro.subtitle}</p>
             </div>
 
             <ul className="space-y-4 mb-8 flex-1">
-               <li className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                  <Video size={18} /> 解锁全部 50+ 高级课程
-               </li>
-               <li className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                  <Zap size={18} /> 专家级 AI 诊断与方案
-               </li>
-               <li className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                  <ArrowUpRight size={18} /> 导出课程字幕与PPT
-               </li>
-               <li className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                  <FileText size={18} /> 无限下载专业报表模版
-               </li>
-               <li className="text-blue-600 text-sm font-medium pl-1 pt-2">
-                  <span className="flex items-center gap-1">
-                     <ArrowUpRight size={14} /> 优先人工专家支持通道
-                  </span>
-               </li>
+               {plansConfig.pro.features.map((feature, idx) => (
+                   <li key={idx} className="flex items-center gap-3 text-sm font-medium text-slate-700">
+                      {getIcon(feature.icon)} {feature.text}
+                   </li>
+               ))}
             </ul>
 
             <button 
@@ -164,7 +165,7 @@ const Plans: React.FC = () => {
                disabled={user?.plan === 'pro'}
                className={`w-full py-3 rounded-xl font-bold transition-colors shadow-lg ${user?.plan === 'pro' ? 'bg-green-500 text-white shadow-green-200' : 'bg-slate-900 text-white hover:bg-black shadow-slate-900/20'}`}
             >
-               {user?.plan === 'pro' ? '已激活 PRO 会员' : '联系商务升级'}
+               {user?.plan === 'pro' ? '已激活 PRO 会员' : plansConfig.pro.buttonText}
             </button>
          </div>
       </div>

@@ -33,6 +33,8 @@ export interface IntroVideo {
   isVisible: boolean;
   duration?: string; // New: Duration display
   lastUpdated?: string; // New: Last update timestamp
+  publisher?: string; // New: Publisher name
+  publishDate?: string; // New: Publish date
 }
 
 // New: Configuration for the Diagnosis Widget Text on Blog Page

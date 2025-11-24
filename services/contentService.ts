@@ -1,5 +1,6 @@
 
 
+
 import { BlogPost, IntroVideo, DiagnosisIssue, BlogPostComment, CommentReply, User, AboutUsInfo, BusinessContactInfo, DiagnosisWidgetConfig, PlansPageConfig } from '../types';
 
 const STORAGE_KEY = 'captain_blog_posts';
@@ -88,7 +89,9 @@ const DEFAULT_INTRO_VIDEO: IntroVideo = {
   thumbnail: 'https://picsum.photos/1280/720?random=99',
   isVisible: true,
   duration: '02:30',
-  lastUpdated: '2024-05-20 10:00'
+  lastUpdated: '2024-05-20 10:00',
+  publisher: 'Captain Official',
+  publishDate: '2024-05-01'
 };
 
 const DEFAULT_DIAGNOSIS_WIDGET: DiagnosisWidgetConfig = {

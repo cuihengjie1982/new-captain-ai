@@ -1,12 +1,12 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Pause, RotateCcw, CheckSquare, Download, 
   MessageCircle, Send, Bookmark, Loader2, FileText, 
   ListVideo, Clock, ChevronRight, Search, Sparkles,
   Highlighter, PenTool, Maximize, Minimize, Settings,
-  ChevronLeft, ArrowLeft, X, Crown, ArrowRight, Quote
+  ChevronLeft, ArrowLeft, X, Crown, ArrowRight, Quote,
+  Wand2
 } from 'lucide-react';
 import { Note, ChatMessage, Lesson, Highlight, AdminNote, User } from '../types';
 import { createChatSession, sendMessageToAI } from '../services/geminiService';
@@ -83,7 +83,14 @@ const SolutionDetail: React.FC = () => {
   // Sync displayed highlights when lesson changes
   useEffect(() => {
     if (currentLesson) {
-      setDisplayedHighlights(currentLesson.highlights || []);
+      // Initial "Auto-Parse" simulation if highlights are empty, or just load default ones
+      const initialHighlights = currentLesson.highlights?.length > 0 ? currentLesson.highlights : [
+          { label: "核心观点", time: 10, color: 'bg-blue-100 text-blue-700 border border-blue-200' },
+          { label: "案例分析", time: Math.floor(currentLesson.durationSec * 0.3), color: 'bg-purple-100 text-purple-700 border border-purple-200' },
+          { label: "实操步骤", time: Math.floor(currentLesson.durationSec * 0.6), color: 'bg-green-100 text-green-700 border border-green-200' },
+          { label: "关键总结", time: Math.floor(currentLesson.durationSec * 0.85), color: 'bg-orange-100 text-orange-700 border border-orange-200' }
+      ];
+      setDisplayedHighlights(initialHighlights);
       setHighlightInput('');
       setSelectionMenu(null);
       // Track history with user ID if available
@@ -176,6 +183,14 @@ const SolutionDetail: React.FC = () => {
     }
   };
 
+  const handlePlayAll = () => {
+      if(displayedHighlights.length > 0) {
+          handleJumpToTime(displayedHighlights[0].time);
+          // In a real app, this would queue playback of only highlight segments
+          alert("开始播放所有高亮片段 (演示模式: 从第一个高亮开始播放)");
+      }
+  };
+
   const handleLessonChange = (lessonId: string) => {
     setCurrentLessonId(lessonId);
     navigate(AppRoute.SOLUTION_DETAIL.replace(':id', lessonId));
@@ -238,7 +253,7 @@ const SolutionDetail: React.FC = () => {
   };
 
   const handleGenerateHighlights = async () => {
-    if (!highlightInput.trim()) return;
+    // Allow empty input for auto-analysis of the whole video
     setIsGeneratingHighlights(true);
 
     try {
@@ -250,20 +265,41 @@ const SolutionDetail: React.FC = () => {
         .map(t => `[${t.time}s] ${t.text}`)
         .join('\n');
 
-      const prompt = `
-        任务：基于以下视频字幕，找出与主题“${highlightInput}”最相关的2-3个关键时间点。
-        字幕：
-        ${transcriptText}
+      let prompt = '';
+      
+      if (highlightInput.trim()) {
+          // User provided a specific topic
+          prompt = `
+            任务：基于以下视频字幕，找出与主题“${highlightInput}”最相关的2-3个关键时间点。
+            字幕：
+            ${transcriptText}
 
-        请严格按此格式返回（不要包含任何其他文字）：
-        简短标签(4-8字)|秒数
-        简短标签(4-8字)|秒数
+            请严格按此格式返回（不要包含任何其他文字）：
+            简短标签(4-8字)|秒数
+            简短标签(4-8字)|秒数
 
-        要求：
-        1. 标签要精准概括该片段内容。
-        2. 秒数必须是整数。
-        3. 如果找不到相关内容，请返回空字符串。
-      `;
+            要求：
+            1. 标签要精准概括该片段内容。
+            2. 秒数必须是整数。
+            3. 如果找不到相关内容，请返回空字符串。
+          `;
+      } else {
+          // Auto-analysis of the whole video
+          prompt = `
+            任务：请分析整段视频字幕，提取 5-6 个最重要的核心内容节点（Highligts），作为视频的章节目录。
+            字幕：
+            ${transcriptText}
+
+            请严格按此格式返回（不要包含任何其他文字）：
+            简短标签(4-8字)|秒数
+            简短标签(4-8字)|秒数
+
+            要求：
+            1. 标签要精炼专业，概括该时间点开始的核心话题。
+            2. 秒数必须是整数。
+            3. 节点应在视频中均匀分布，覆盖开始、中间和结尾的重要转折。
+          `;
+      }
 
       const responseText = await sendMessageToAI(chat, prompt);
       
@@ -271,11 +307,13 @@ const SolutionDetail: React.FC = () => {
       const newHighlights: Highlight[] = [];
       const lines = responseText.split('\n');
       
-      // Distinct colors for generated highlights to differentiate them
+      // Distinct colors for generated highlights
       const genColors = [
         'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200',
         'bg-violet-100 text-violet-700 border border-violet-200', 
-        'bg-cyan-100 text-cyan-700 border border-cyan-200'
+        'bg-cyan-100 text-cyan-700 border border-cyan-200',
+        'bg-emerald-100 text-emerald-700 border border-emerald-200',
+        'bg-rose-100 text-rose-700 border border-rose-200'
       ];
 
       let colorIdx = 0;
@@ -296,12 +334,15 @@ const SolutionDetail: React.FC = () => {
       }
 
       if (newHighlights.length > 0) {
-        setDisplayedHighlights(prev => [...prev, ...newHighlights]);
+        setDisplayedHighlights(newHighlights); 
         setHighlightInput(''); // Clear input on success
+      } else {
+        alert("AI未能识别到有效内容，请重试或更换关键词。");
       }
       
     } catch (error) {
       console.error("Error generating highlights:", error);
+      alert("AI 服务暂时繁忙，请稍后再试。");
     } finally {
       setIsGeneratingHighlights(false);
     }
@@ -383,6 +424,21 @@ const SolutionDetail: React.FC = () => {
       // Logic to download transcript would go here
       alert("开始下载字幕文稿...");
     }
+  };
+
+  // Extract color class for visualization
+  const getHighlightColorHex = (colorClass: string) => {
+      if (colorClass.includes('blue')) return '#3b82f6';
+      if (colorClass.includes('purple')) return '#a855f7';
+      if (colorClass.includes('green')) return '#22c55e';
+      if (colorClass.includes('orange')) return '#f97316';
+      if (colorClass.includes('red')) return '#ef4444';
+      if (colorClass.includes('fuchsia')) return '#d946ef';
+      if (colorClass.includes('violet')) return '#8b5cf6';
+      if (colorClass.includes('cyan')) return '#06b6d4';
+      if (colorClass.includes('emerald')) return '#10b981';
+      if (colorClass.includes('rose')) return '#f43f5e';
+      return '#94a3b8'; // Slate 400
   };
 
   return (
@@ -543,19 +599,18 @@ const SolutionDetail: React.FC = () => {
         {/* Video Info & Highlights (Scrollable in flex column) */}
         <div className="flex-1 overflow-y-auto bg-slate-50">
             <div className="p-6 border-b border-slate-200 bg-white">
-                <div className="flex flex-col gap-4">
-                    <div className="flex justify-between items-start">
-                        <h2 className="text-xl font-bold text-slate-900">{currentLesson.title}</h2>
-                        <button className="text-slate-400 hover:text-blue-600"><Bookmark size={20} /></button>
-                    </div>
-                    
-                    {/* Highlights Section with Input */}
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                    <div className="relative flex items-center w-full sm:w-64 flex-shrink-0">
-                        <Sparkles size={14} className="absolute left-3 text-blue-600" />
+                
+                {/* Input Section */}
+                <div className="flex gap-4 items-center mb-6">
+                    <div className="relative flex-1">
+                        {highlightInput.trim() ? (
+                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        ) : (
+                            <Wand2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-600" />
+                        )}
                         <input 
-                            className="pl-9 pr-16 py-1.5 text-xs border border-blue-100 bg-blue-50/50 rounded-full w-full focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none placeholder:text-blue-400"
-                            placeholder="输入主题生成高亮..."
+                            className="w-full pl-10 pr-24 py-2.5 text-sm border border-slate-200 bg-slate-50 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none placeholder:text-slate-400"
+                            placeholder="输入感兴趣的主题，或留空进行 AI 全篇智能解析..."
                             value={highlightInput}
                             onChange={(e) => setHighlightInput(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleGenerateHighlights()}
@@ -563,54 +618,74 @@ const SolutionDetail: React.FC = () => {
                         />
                         <button 
                             onClick={handleGenerateHighlights}
-                            disabled={isGeneratingHighlights || !highlightInput.trim()}
-                            className="absolute right-1 top-1 bottom-1 px-3 bg-white text-blue-600 text-[10px] font-bold rounded-full shadow-sm border border-blue-100 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            disabled={isGeneratingHighlights}
+                            className={`absolute right-1.5 top-1.5 bottom-1.5 px-4 text-xs font-bold rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1 ${
+                                isGeneratingHighlights ? 'bg-slate-200 text-slate-500' :
+                                highlightInput.trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                            }`}
                         >
-                            {isGeneratingHighlights ? <Loader2 size={10} className="animate-spin" /> : '生成'}
+                            {isGeneratingHighlights ? <Loader2 size={14} className="animate-spin" /> : (
+                                highlightInput.trim() ? (
+                                    <>生成高亮</>
+                                ) : (
+                                    <><Sparkles size={12} /> AI 全篇解析</>
+                                )
+                            )}
                         </button>
                     </div>
-
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar flex-1 w-full">
-                        {displayedHighlights.length === 0 && <span className="text-xs text-slate-300 italic flex-shrink-0">暂无标记</span>}
-                        {displayedHighlights.map((hl, idx) => (
-                            <button
-                            key={idx}
-                            onClick={() => handleJumpToTime(hl.time)}
-                            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition-all hover:shadow-md hover:-translate-y-0.5 animate-in fade-in zoom-in duration-300 ${hl.color}`}
-                            >
-                            <Play size={10} className="fill-current" />
-                            {hl.label}
-                            </button>
-                        ))}
-                    </div>
-                    </div>
                 </div>
-            </div>
 
-            {/* Playlist in Detail View (Horizontal or List below) */}
-            <div className="p-6">
-                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <ListVideo size={18} /> 相关课程推荐
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {lessons.filter(l => l.id !== currentLesson.id).slice(0, 4).map(lesson => (
-                        <div 
-                            key={lesson.id}
-                            onClick={() => handleLessonChange(lesson.id)}
-                            className="flex gap-3 p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer transition-all group"
-                        >
-                            <div className="w-24 h-16 bg-slate-100 rounded-lg overflow-hidden relative flex-shrink-0">
-                                <img src={lesson.thumbnail} alt="" className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Play size={12} className="text-white fill-current" />
+                {/* Visual Highlight Timeline Bar */}
+                <div className="h-2 w-full bg-slate-100 rounded-full relative mb-4 overflow-hidden">
+                    {displayedHighlights.map((hl, idx) => {
+                        const leftPercent = (hl.time / currentLesson.durationSec) * 100;
+                        const color = getHighlightColorHex(hl.color);
+                        return (
+                            <div 
+                                key={idx}
+                                className="absolute top-0 bottom-0 w-1.5 rounded-full z-10"
+                                style={{ left: `${leftPercent}%`, backgroundColor: color }}
+                                title={hl.label}
+                            />
+                        );
+                    })}
+                </div>
+
+                {/* Highlights List View */}
+                <div className="relative">
+                    <div className="space-y-3">
+                        {displayedHighlights.length === 0 && <div className="text-center text-slate-400 py-4 text-sm">暂无高亮标记</div>}
+                        {displayedHighlights.map((hl, idx) => {
+                            const colorClass = hl.color.split(' ')[0].replace('bg-', 'text-').replace('-100', '-500'); // Roughly extract color for icon
+                            return (
+                                <div 
+                                    key={idx} 
+                                    onClick={() => handleJumpToTime(hl.time)}
+                                    className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 cursor-pointer group transition-colors border border-transparent hover:border-slate-100"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-3 h-3 rounded-full ${colorClass.replace('text-', 'bg-')} shadow-sm`}></div>
+                                        <span className="text-sm font-medium text-slate-700 group-hover:text-blue-700 transition-colors">{hl.label}</span>
+                                    </div>
+                                    <div className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded group-hover:bg-white group-hover:shadow-sm transition-all">
+                                        {formatTime(hl.time)}
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-blue-600 transition-colors mb-1">{lesson.title}</h4>
-                                <div className="text-xs text-slate-400">{lesson.duration}</div>
-                            </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Floating Play All Button */}
+                    {displayedHighlights.length > 0 && (
+                        <div className="mt-6 flex justify-end">
+                            <button 
+                                onClick={handlePlayAll}
+                                className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg hover:bg-black hover:scale-105 transition-all active:scale-95"
+                            >
+                                <Play size={16} className="fill-current" /> 全部播放
+                            </button>
                         </div>
-                    ))}
+                    )}
                 </div>
             </div>
         </div>

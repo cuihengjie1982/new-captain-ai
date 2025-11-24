@@ -6,7 +6,8 @@ import {
   ArrowRight, Send, Loader2, RotateCcw, Sparkles,
   FileText, Download, Upload, FileCheck, Mail, CheckCircle,
   X, FileSpreadsheet, Presentation, BookOpen, File, Copy, Check, Lock, Crown,
-  PenTool, MessageSquare, Stethoscope, Video, Mic, StopCircle, Radio, Camera, LayoutTemplate
+  PenTool, MessageSquare, Stethoscope, Video, Mic, StopCircle, Radio, Camera, LayoutTemplate, Settings,
+  Smartphone, Monitor, Tablet, Square as SquareIcon, MessageCircle
 } from 'lucide-react';
 import { getKnowledgeCategories } from '../services/resourceService';
 import { saveUserUpload } from '../services/userDataService';
@@ -19,7 +20,7 @@ interface Message {
   id: string;
   sender: 'ai' | 'user';
   text: string;
-  action?: 'switch_to_expert'; // Added action type
+  action?: 'switch_to_expert'; 
 }
 
 // --- Live API Helper Functions ---
@@ -136,12 +137,11 @@ const Diagnosis: React.FC = () => {
   const [uploadedFileName, setUploadedFileName] = useState('');
   
   // Interview Mode State
-  const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '3:4' | '1:1'>('9:16');
   const [isRecording, setIsRecording] = useState(false);
-  const [aiInterviewQuestion, setAiInterviewQuestion] = useState("请点击左侧“开始录制”按钮。AI 将通过视频与您进行互动访谈，挖掘您的需求。");
+  const [aiInterviewQuestion, setAiInterviewQuestion] = useState("你好！我是 AI 面试官。请点击左侧红色按钮开始录制，我会通过实时语音与您互动，深入了解您的需求。");
   const [isLiveConnected, setIsLiveConnected] = useState(false);
+  const [videoAspectRatio, setVideoAspectRatio] = useState<string>('16/9'); // New Aspect Ratio State
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -178,18 +178,13 @@ const Diagnosis: React.FC = () => {
     const initialIssue = location.state?.initialIssue;
 
     if (initialIssue) {
-      // Auto-fill expert description if coming from Blog
       setExpertIssueDescription(initialIssue);
-
-      // Fetch dynamic issues to find match for AI chat
       const issues = getIssuesContent();
       const foundIssue = issues.find(i => i.title === initialIssue);
       
       let userText = initialIssue;
       if (foundIssue) {
           userText = foundIssue.userText;
-      } else {
-          userText = initialIssue; 
       }
 
       setMessages([{ id: '0', sender: 'user', text: userText }]);
@@ -240,78 +235,12 @@ const Diagnosis: React.FC = () => {
     };
   }, [activeTab]);
 
-  // Handle canvas drawing for selected aspect ratio
-  useEffect(() => {
-    let animationFrameId: number;
-
-    const draw = () => {
-      // Draw only if we have a stream and it is active
-      if (videoRef.current && canvasRef.current && streamRef.current && streamRef.current.active) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        
-        if (ctx && video.readyState === video.HAVE_ENOUGH_DATA) {
-            // Set canvas size based on aspect ratio (base height 720p or similar)
-            const baseH = 720;
-            let targetW = baseH;
-            let targetH = baseH;
-
-            switch (aspectRatio) {
-                case '9:16': targetW = 405; targetH = 720; break;
-                case '16:9': targetW = 720; targetH = 405; break;
-                case '3:4': targetW = 540; targetH = 720; break;
-                case '1:1': targetW = 720; targetH = 720; break;
-            }
-
-            // Only update dimensions if needed to avoid flicker
-            if (canvas.width !== targetW || canvas.height !== targetH) {
-                canvas.width = targetW;
-                canvas.height = targetH;
-            }
-
-            // Calculate center crop
-            const vidW = video.videoWidth;
-            const vidH = video.videoHeight;
-            const vidRatio = vidW / vidH;
-            const targetRatio = targetW / targetH;
-
-            let sx, sy, sw, sh;
-
-            if (vidRatio > targetRatio) {
-                // Video is wider than target
-                sh = vidH;
-                sw = vidH * targetRatio;
-                sy = 0;
-                sx = (vidW - sw) / 2;
-            } else {
-                // Video is taller than target
-                sw = vidW;
-                sh = vidW / targetRatio;
-                sx = 0;
-                sy = (vidH - sh) / 2;
-            }
-
-            // Mirror effect
-            ctx.save();
-            ctx.scale(-1, 1);
-            ctx.drawImage(video, sx, sy, sw, sh, -targetW, 0, targetW, targetH);
-            ctx.restore();
-        }
-      }
-      animationFrameId = requestAnimationFrame(draw);
-    };
-
-    if (activeTab === 'interview') {
-        draw();
-    }
-
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [aspectRatio, activeTab]);
-
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { width: { ideal: 1920 }, height: { ideal: 1080 } }, 
+          audio: true 
+      });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -346,9 +275,6 @@ const Diagnosis: React.FC = () => {
     const ai = new GoogleGenAI({ apiKey });
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
     
-    // We do NOT create an output AudioContext or Source because we only want text transcription.
-    // The requirement is "text only, no audio".
-
     try {
       let sessionPromise: Promise<any>;
       sessionPromise = ai.live.connect({
@@ -378,25 +304,17 @@ const Diagnosis: React.FC = () => {
             }
           },
           onmessage: (msg: LiveServerMessage) => {
-            // Check for transcription
             if (msg.serverContent?.outputTranscription) {
-               // This is the text of what the AI *would* say
                const text = msg.serverContent.outputTranscription.text;
                if (text) {
                    setAiInterviewQuestion(prev => {
-                       // Reset if previous was a complete sentence or question
-                       if (prev.endsWith('？') || prev.endsWith('。') || prev.includes("请点击")) return text;
+                       if (prev.endsWith('？') || prev.endsWith('。') || prev.includes("请点击") || prev.includes("录制")) return text;
                        return prev + text;
                    });
                }
             }
-            
-            if (msg.serverContent?.turnComplete) {
-                console.log("AI Turn Complete");
-            }
           },
           onclose: () => {
-            console.log("Gemini Live Closed");
             setIsLiveConnected(false);
           },
           onerror: (err) => {
@@ -405,16 +323,15 @@ const Diagnosis: React.FC = () => {
           }
         },
         config: {
-          responseModalities: [Modality.AUDIO], // Must be AUDIO for Live API
-          outputAudioTranscription: { model: "gemini-2.5-flash" }, // Enable transcription to get text
+          responseModalities: [Modality.AUDIO],
+          outputAudioTranscription: { model: "gemini-2.5-flash" },
           systemInstruction: `You are a professional, empathetic, and slightly charismatic Video Podcast Host interviewing a Call Center Manager. 
           Your goal is to help them articulate their operational problems.
           1. Ask SHORT, concise, open-ended questions (1-2 sentences max).
           2. Listen to their answer, acknowledge it briefly, and ask a follow-up.
           3. Do NOT provide solutions yet. Just dig deeper into the problem.
           4. Actively listen.
-          5. Keep the tone elegant and professional.
-          6. IMPORTANT: You are generating text for subtitles on a video screen, so keep it readable.`,
+          5. Keep the tone elegant and professional.`,
         }
       });
     } catch (e) {
@@ -436,30 +353,21 @@ const Diagnosis: React.FC = () => {
 
   const handleRecordToggle = async () => {
     if (isRecording) {
-      // Stop Recording
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
       }
       stopLiveSession();
       stopCamera(); 
       setIsRecording(false);
-      setAiInterviewQuestion("访谈已结束。您可以下载视频或点击开始重新录制。");
+      setAiInterviewQuestion("访谈已结束。您可以下载视频或点击红色按钮重新开始。");
     } else {
-      // Start Recording
       const success = await startCamera();
       if (!success) return;
       
-      // Wait slightly for video to be ready
       await new Promise(r => setTimeout(r, 500));
 
-      if (canvasRef.current && streamRef.current) {
-          const canvasStream = canvasRef.current.captureStream(30); // 30 FPS
-          const audioTracks = streamRef.current.getAudioTracks();
-          if (audioTracks.length > 0) {
-            canvasStream.addTrack(audioTracks[0]);
-          }
-
-          const recorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
+      if (streamRef.current) {
+          const recorder = new MediaRecorder(streamRef.current, { mimeType: 'video/webm' });
           recordedChunksRef.current = [];
 
           recorder.ondataavailable = (e) => {
@@ -471,8 +379,6 @@ const Diagnosis: React.FC = () => {
           recorder.start();
           mediaRecorderRef.current = recorder;
           setIsRecording(true);
-          
-          // Start AI Interviewer
           await startLiveSession();
       }
     }
@@ -487,7 +393,7 @@ const Diagnosis: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `interview_${aspectRatio.replace(':','-')}_${Date.now()}.webm`; 
+    a.download = `interview_${Date.now()}.webm`; 
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
@@ -587,7 +493,6 @@ const Diagnosis: React.FC = () => {
   const handleSubmitIssue = () => {
     if(!expertIssueDescription.trim()) return;
     setExpertIssueSubmitted(true);
-    // In a real app, this would send to backend
   };
 
   const handleOpenResourceModal = () => {
@@ -599,10 +504,7 @@ const Diagnosis: React.FC = () => {
   };
 
   const handleResourceDownload = (item: KnowledgeItem) => {
-    // Simulate download
     setDownloadedFiles(prev => [...prev, item.title]);
-    // Close modal after a short delay or keep open
-    // For UX, maybe show a toast, here just auto-close to simulate action
     setTimeout(() => {
         setShowResourceModal(false);
         alert(`文件 “${item.title}” 已开始下载`);
@@ -788,127 +690,149 @@ const Diagnosis: React.FC = () => {
           </div>
         )}
 
-        {/* --- TAB 3: AI Video Interview (New Module) --- */}
+        {/* --- TAB 3: AI Video Interview (Split Layout) --- */}
         {activeTab === 'interview' && (
-           <div className="absolute inset-0 bg-slate-100 flex flex-col md:flex-row overflow-hidden">
-               {/* Hidden Source Video (for getUserMedia) */}
-               <video ref={videoRef} className="hidden" autoPlay muted playsInline></video>
-
-               {/* Left/Top Control Panel */}
-               <div className="w-full md:w-80 bg-white border-r border-slate-200 p-6 flex flex-col z-20 shadow-xl overflow-y-auto">
-                   <div className="mb-6">
-                      <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                          <Camera size={24} className="text-blue-600" />
-                          视频需求录制
-                      </h3>
-                      <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-                          像与真人聊天一样，通过视频口述您的需求。AI 将引导您理清思路。
-                      </p>
-                   </div>
+           <div className="absolute inset-0 flex flex-col md:flex-row bg-white">
+               {/* LEFT: Controls & Info */}
+               <div className="w-full md:w-80 lg:w-96 border-r border-slate-200 bg-white p-6 flex flex-col z-10 shadow-sm overflow-y-auto">
                    
-                   <div className="space-y-6 flex-1">
-                       <div>
-                           <label className="block text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-1">
-                               <LayoutTemplate size={14} /> 视频比例
-                           </label>
-                           <div className="grid grid-cols-2 gap-3">
-                               {['9:16', '16:9', '3:4', '1:1'].map((ratio) => (
-                                   <button 
-                                      key={ratio}
-                                      onClick={() => !isRecording && setAspectRatio(ratio as any)}
-                                      disabled={isRecording}
-                                      className={`px-3 py-2.5 rounded-lg text-sm font-bold border transition-all ${aspectRatio === ratio ? 'bg-slate-900 text-white border-slate-900 ring-2 ring-blue-200' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'}`}
-                                   >
-                                      {ratio}
-                                   </button>
-                               ))}
-                           </div>
-                       </div>
+                   <div className="mb-8">
+                       <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-2">
+                           <Camera className="text-blue-600" size={24} /> 视频需求录制
+                       </h2>
+                       <p className="text-slate-500 text-sm leading-relaxed">
+                           像与真人聊天一样，通过视频口述您的需求。AI 将引导您理清思路。
+                       </p>
+                   </div>
 
-                       <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                           <h4 className="font-bold text-blue-900 text-sm mb-2 flex items-center gap-2">
-                              <Sparkles size={14} /> AI 访谈助手
-                           </h4>
-                           <p className="text-xs text-blue-700 leading-relaxed">
-                               Gemini 将实时倾听您的描述，并以文字气泡的形式提出引导性问题。就像播客主持人一样，帮助您挖掘深层需求。
-                           </p>
+                   <div className="mb-8">
+                       <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-1">
+                           <LayoutTemplate size={14} /> 视频比例
+                       </h3>
+                       <div className="grid grid-cols-2 gap-3">
+                           <button 
+                               onClick={() => setVideoAspectRatio('9/16')}
+                               className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all border ${videoAspectRatio === '9/16' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                           >
+                               <Smartphone size={16} /> 9:16
+                           </button>
+                           <button 
+                               onClick={() => setVideoAspectRatio('16/9')}
+                               className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all border ${videoAspectRatio === '16/9' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                           >
+                               <Monitor size={16} /> 16:9
+                           </button>
+                           <button 
+                               onClick={() => setVideoAspectRatio('3/4')}
+                               className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all border ${videoAspectRatio === '3/4' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                           >
+                               <Tablet size={16} /> 3:4
+                           </button>
+                           <button 
+                               onClick={() => setVideoAspectRatio('1/1')}
+                               className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all border ${videoAspectRatio === '1/1' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                           >
+                               <SquareIcon size={16} /> 1:1
+                           </button>
                        </div>
                    </div>
 
-                   <div className="mt-8 border-t border-slate-100 pt-6 space-y-3 pb-4">
+                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-8">
+                       <div className="flex items-center gap-2 text-blue-700 font-bold text-sm mb-2">
+                           <Sparkles size={16} /> AI 访谈助手
+                       </div>
+                       <p className="text-blue-900/70 text-xs leading-relaxed">
+                           Gemini 将实时倾听您的描述，并以文字气泡的形式提出引导性问题。就像播客主持人一样，帮助您挖掘深层需求。
+                       </p>
+                   </div>
+
+                   <div className="mt-auto pb-4">
                        {!isRecording ? (
                            <button 
-                             onClick={handleRecordToggle}
-                             className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/20"
+                               onClick={handleRecordToggle}
+                               className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold shadow-lg shadow-red-600/20 transition-all flex items-center justify-center gap-2 group"
                            >
                                <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
                                开始录制访谈
                            </button>
                        ) : (
                            <button 
-                             onClick={handleRecordToggle}
-                             className="w-full py-4 bg-slate-900 hover:bg-black text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+                               onClick={handleRecordToggle}
+                               className="w-full py-3.5 bg-white border border-slate-200 text-red-600 hover:bg-red-50 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
                            >
-                               <StopCircle size={20} />
+                               <div className="w-3 h-3 bg-red-600 rounded-sm"></div>
                                停止录制
                            </button>
                        )}
-                       
                        {recordedChunksRef.current.length > 0 && !isRecording && (
                            <button 
-                             onClick={handleDownloadVideo}
-                             className="w-full py-3 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+                               onClick={handleDownloadVideo}
+                               className="w-full py-3 mt-3 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
                            >
-                               <Download size={18} />
-                               下载访谈视频
+                               <Download size={16} /> 下载视频
                            </button>
                        )}
                    </div>
                </div>
 
-               {/* Video Preview Area */}
-               <div className="flex-1 bg-slate-200 flex items-center justify-center relative overflow-hidden bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px] min-h-[400px]">
+               {/* RIGHT: Video & Interaction Area */}
+               <div className="flex-1 bg-slate-100 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+                   <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:16px_16px]"></div>
                    
+                   {/* Video Container */}
                    <div 
-                     className={`relative shadow-2xl overflow-hidden bg-black transition-all duration-500 ease-in-out border-4 border-white ring-1 ring-slate-200 ${
-                        aspectRatio === '9:16' ? 'aspect-[9/16] h-[85%]' : 
-                        aspectRatio === '16:9' ? 'aspect-video w-[90%]' : 
-                        aspectRatio === '3:4' ? 'aspect-[3/4] h-[80%]' : 
-                        'aspect-square h-[80%]'
-                     } rounded-2xl`}
+                        className="relative rounded-2xl overflow-hidden shadow-2xl bg-black ring-8 ring-white w-full max-w-3xl transition-all duration-500"
+                        style={{ aspectRatio: videoAspectRatio.replace(':', '/') }}
                    >
-                       {/* Canvas for Displaying Camera/Recording */}
-                       <canvas ref={canvasRef} className="w-full h-full object-contain bg-black"></canvas>
-
-                       {/* Placeholder when not recording / camera off */}
+                       <video 
+                          ref={videoRef} 
+                          className="w-full h-full object-cover transform scale-x-[-1]" 
+                          autoPlay 
+                          muted 
+                          playsInline 
+                       />
+                       
+                       {/* Start Prompt Overlay */}
                        {!isRecording && !streamRef.current && (
-                           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 text-slate-400 z-10">
-                               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
-                                   <Camera size={32} className="opacity-50" />
+                           <div className="absolute inset-0 bg-slate-900/80 flex flex-col items-center justify-center text-center z-10 p-6">
+                               <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-4">
+                                   <Camera size={32} className="text-white/50" />
                                </div>
-                               <p className="text-sm font-medium">点击左侧“开始录制”开启摄像头</p>
+                               <h3 className="text-white font-bold text-lg mb-1">准备就绪</h3>
+                               <p className="text-slate-400 text-sm">请点击左侧“开始录制”按钮</p>
                            </div>
                        )}
-                       
-                       {/* AI Overlay Bubble */}
-                       <div className="absolute bottom-8 left-4 right-4 z-20">
-                           <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-white/50 animate-in slide-in-from-bottom-4 duration-500">
-                               <div className="flex items-center gap-2 mb-2">
-                                  <div className={`w-2 h-2 rounded-full ${isLiveConnected ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">AI Host {isLiveConnected ? 'Listening' : 'Ready'}</span>
+
+                       {/* Recording Indicator */}
+                       {isRecording && (
+                           <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1 bg-red-600/90 backdrop-blur rounded-full z-20">
+                               <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
+                               <span className="text-white text-[10px] font-bold tracking-wider">REC</span>
+                           </div>
+                       )}
+
+                       {/* AI Question Overlay (Subtitle Style) */}
+                       <div className="absolute bottom-8 left-8 right-8 z-20">
+                           <div className="flex items-end gap-3 animate-in slide-in-from-bottom-4 fade-in duration-500">
+                               <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-lg flex-shrink-0 border-2 border-white">
+                                   <Sparkles size={20} />
                                </div>
-                               <p className="text-slate-800 font-medium text-lg leading-relaxed">
-                                   {aiInterviewQuestion}
-                               </p>
+                               <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl rounded-bl-none shadow-xl border border-white/50 max-w-[80%]">
+                                   <div className="text-xs font-bold text-blue-600 mb-1">AI 访谈助手</div>
+                                   <p className="text-slate-800 font-medium text-sm md:text-base leading-snug">
+                                       {aiInterviewQuestion}
+                                   </p>
+                               </div>
                            </div>
                        </div>
-                       
-                       {/* Status Indicator */}
-                       {isRecording && (
-                           <div className="absolute top-4 right-4 px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full flex items-center gap-2 animate-pulse shadow-sm z-30">
-                               <div className="w-2 h-2 bg-white rounded-full"></div> REC
-                           </div>
-                       )}
+                   </div>
+
+                   {/* Status Bar */}
+                   <div className="absolute top-6 right-6 flex items-center gap-3">
+                       <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md border ${isLiveConnected ? 'bg-green-500/10 border-green-500/20 text-green-600' : 'bg-slate-200/50 border-slate-300/50 text-slate-500'}`}>
+                           <div className={`w-2 h-2 rounded-full ${isLiveConnected ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></div>
+                           <span className="text-xs font-bold uppercase">{isLiveConnected ? 'AI Online' : 'AI Offline'}</span>
+                       </div>
                    </div>
                </div>
            </div>
@@ -965,7 +889,6 @@ const Diagnosis: React.FC = () => {
 
               {/* Step 2: Download Tools */}
               <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6 relative overflow-hidden">
-                {/* Permission Gate Overlay (Visual only) */}
                 {!hasPermission(currentUser, 'download_resources') && (
                    <div className="absolute top-2 right-2">
                       <Lock className="text-slate-300" size={16} />

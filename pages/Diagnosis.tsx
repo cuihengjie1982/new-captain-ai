@@ -313,6 +313,8 @@ const Diagnosis: React.FC = () => {
                    });
                }
             }
+            // NOTE: We intentionally do NOT play the returned audio bytes here.
+            // This creates the "Silent Interviewer" experience (Text Bubbles only) as requested.
           },
           onclose: () => {
             setIsLiveConnected(false);
@@ -367,7 +369,15 @@ const Diagnosis: React.FC = () => {
       await new Promise(r => setTimeout(r, 500));
 
       if (streamRef.current) {
-          const recorder = new MediaRecorder(streamRef.current, { mimeType: 'video/webm' });
+          // Try to support MP4 if possible, fallback to WebM
+          let options: MediaRecorderOptions = { mimeType: 'video/webm' };
+          if (MediaRecorder.isTypeSupported('video/mp4')) {
+              options = { mimeType: 'video/mp4' };
+          } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
+              options = { mimeType: 'video/webm;codecs=h264' };
+          }
+
+          const recorder = new MediaRecorder(streamRef.current, options);
           recordedChunksRef.current = [];
 
           recorder.ondataavailable = (e) => {
@@ -389,11 +399,15 @@ const Diagnosis: React.FC = () => {
         alert("暂无录制内容");
         return;
     }
-    const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+    
+    // Determine type based on actual recording
+    const type = recordedChunksRef.current[0]?.type || 'video/webm';
+    const blob = new Blob(recordedChunksRef.current, { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `interview_${Date.now()}.webm`; 
+    // Force .mp4 extension as requested
+    a.download = `interview_${Date.now()}.mp4`; 
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
@@ -742,7 +756,7 @@ const Diagnosis: React.FC = () => {
                            <Sparkles size={16} /> AI 访谈助手
                        </div>
                        <p className="text-blue-900/70 text-xs leading-relaxed">
-                           Gemini 将实时倾听您的描述，并以文字气泡的形式提出引导性问题。就像播客主持人一样，帮助您挖掘深层需求。
+                           AI将实时倾听您的描述，并以文字气泡的形式提出引导性问题。就像播客主持人一样，帮助您挖掘深层需求。
                        </p>
                    </div>
 
@@ -769,7 +783,7 @@ const Diagnosis: React.FC = () => {
                                onClick={handleDownloadVideo}
                                className="w-full py-3 mt-3 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
                            >
-                               <Download size={16} /> 下载视频
+                               <Download size={16} /> 下载视频 (.mp4)
                            </button>
                        )}
                    </div>

@@ -1,18 +1,17 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Settings, BookOpen, Video, Database, Plus, Trash2, Edit, Save, X, Bot,
-  Upload, FileText, Image as ImageIcon, Loader2,
-  LayoutDashboard, PieChart, BarChart3, Users, ClipboardList, File as FileIcon, Download,
-  MonitorPlay, MessageSquare, Shield, ToggleLeft, ToggleRight, Sparkles, Quote, Link as LinkIcon, Tags, UserCog, Key, FileCheck, AlertTriangle, Activity, Zap, Import, ArrowUp, ArrowDown, Sigma, Divide, QrCode, Wallet, Building2, Globe, Mail, Clock, Crown, CreditCard, Phone, Smartphone, Lock, Briefcase, Stethoscope, FileSpreadsheet, Presentation, Check, Star, ArrowUpRight,
-  Square, CheckSquare, Filter, List, BarChart2, Send, User as UserIcon, Search, TrendingUp, PenTool
+  Upload, FileText, FileVideo, Image as ImageIcon, FileType, Loader2, CheckCircle,
+  LayoutDashboard, Target, PieChart, BarChart3, Users, ClipboardList, File as FileIcon, Download,
+  MonitorPlay, MessageSquare, BrainCircuit, Shield, ToggleLeft, ToggleRight, Sparkles, Quote, Link as LinkIcon, Tags, UserCog, Key, FileCheck, AlertTriangle, Activity, Zap, Import, ArrowUp, ArrowDown, Sigma, Divide, QrCode, Wallet, Building2, Globe, Mail, Clock, Crown, CreditCard, Phone, Smartphone, Lock, Layers, Briefcase, Calendar, Stethoscope, FileSpreadsheet, Presentation, FolderOpen, Check, Star, ArrowUpRight,
+  Square, CheckSquare, Filter, FileJson, Eye, List, BarChart2, Send, User as UserIcon, Search, MoreHorizontal, TrendingUp, PenTool, History
 } from 'lucide-react';
-import { BlogPost, Lesson, KnowledgeCategory, KnowledgeItem, DashboardProject, UserUpload, AdminNote, IntroVideo, DiagnosisIssue, PermissionConfig, PermissionDefinition, PermissionKey, TranscriptLine, User, KPIItem, KPIRecord, AboutUsInfo, EmailLog, BusinessContactInfo, BusinessLead, DiagnosisSubmission, DiagnosisWidgetConfig, KnowledgeSectionType, PlansPageConfig, PlanFeature } from '../types';
+import { BlogPost, Lesson, KnowledgeCategory, KnowledgeItem, DashboardProject, UserUpload, AdminNote, IntroVideo, DiagnosisIssue, PermissionConfig, PermissionDefinition, PermissionKey, TranscriptLine, User, KPIItem, KPIRecord, AboutUsInfo, EmailLog, RiskDetailItem, BusinessContactInfo, BusinessLead, DiagnosisSubmission, DiagnosisWidgetConfig, KnowledgeSectionType, WatchedLesson, ReadArticle, PlansPageConfig, PlanFeature } from '../types';
 import { getBlogPosts, saveBlogPost, deleteBlogPost, getIntroVideo, saveIntroVideo, getDiagnosisIssues, saveDiagnosisIssue, deleteDiagnosisIssue, getPaymentQRCode, savePaymentQRCode, getAboutUsInfo, saveAboutUsInfo, getBusinessContactInfo, saveBusinessContactInfo, getDiagnosisWidgetConfig, saveDiagnosisWidgetConfig, getPlansPageConfig, savePlansPageConfig } from '../services/contentService';
 import { getLessons, saveLesson, deleteLesson } from '../services/courseService';
 import { getKnowledgeCategories, saveKnowledgeCategory, deleteKnowledgeCategory } from '../services/resourceService';
 import { getDashboardProjects, saveDashboardProject, deleteDashboardProject } from '../services/dashboardService';
-import { getUserUploads, deleteUserUpload, getAdminNotes, deleteAdminNote, getAllUsers, saveUser, deleteUser, getBusinessLeads, deleteBusinessLead, getDiagnosisSubmissions, deleteDiagnosisSubmission, updateBusinessLeadStatus, getWatchedHistory, getReadHistory } from '../services/userDataService';
+import { getUserUploads, deleteUserUpload, getAdminNotes, updateAdminNote, deleteAdminNote, updateUserUploadStatus, getAllUsers, saveUser, deleteUser, getEmailLogs, getBusinessLeads, deleteBusinessLead, getDiagnosisSubmissions, deleteDiagnosisSubmission, updateBusinessLeadStatus, getWatchedHistory, getReadHistory } from '../services/userDataService';
 import { getPermissionConfig, savePermissionConfig, getPermissionDefinitions, savePermissionDefinition, deletePermissionDefinition } from '../services/permissionService';
 
 // Specific AI Models for Video Transcript Generation
@@ -192,6 +191,7 @@ const KPIEditor: React.FC<{ kpis: KPIItem[], onChange: (kpis: KPIItem[]) => void
                       
                       {activeIndex === idx && (
                           <div className="p-4 border-t border-slate-100 space-y-4 bg-slate-50/30 animate-in slide-in-from-top-1">
+                              {/* Basic Info */}
                               <div className="space-y-3">
                                   <div>
                                       <label className="block text-xs font-bold text-slate-500 mb-1">指标名称</label>
@@ -209,6 +209,7 @@ const KPIEditor: React.FC<{ kpis: KPIItem[], onChange: (kpis: KPIItem[]) => void
                                   </div>
                               </div>
 
+                              {/* Config */}
                               <div className="grid grid-cols-3 gap-3 bg-slate-100 p-3 rounded-lg border border-slate-200">
                                   <div>
                                       <label className="block text-[10px] font-bold text-slate-500 mb-1">时间维度</label>
@@ -238,6 +239,7 @@ const KPIEditor: React.FC<{ kpis: KPIItem[], onChange: (kpis: KPIItem[]) => void
                                   </div>
                               </div>
 
+                              {/* Data Entry */}
                               <div className="border-t border-slate-200 pt-3">
                                   <div className="flex justify-between items-center mb-2">
                                       <h5 className="text-xs font-bold text-slate-700">历史数据录入 ({kpi.chartData?.length || 0} 条)</h5>
@@ -256,6 +258,7 @@ const KPIEditor: React.FC<{ kpis: KPIItem[], onChange: (kpis: KPIItem[]) => void
                                       <button onClick={() => handleAddDataPoint(idx)} className="px-4 bg-blue-500 text-white rounded text-sm font-bold hover:bg-blue-600">添加</button>
                                   </div>
                                   
+                                  {/* Data Table */}
                                   <div className="max-h-32 overflow-y-auto border border-slate-200 rounded bg-white">
                                       <table className="w-full text-xs text-left">
                                           <thead className="bg-slate-50 text-slate-500 sticky top-0">
@@ -288,9 +291,11 @@ const KPIEditor: React.FC<{ kpis: KPIItem[], onChange: (kpis: KPIItem[]) => void
   );
 };
 
+// --- Main Admin Component ---
 const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'blog' | 'diagnosis' | 'solution' | 'dashboard' | 'users' | 'resource' | 'behavior'>('blog');
   
+  // Blog Data
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [introVideo, setIntroVideo] = useState<IntroVideo | null>(null);
   const [isEditingPost, setIsEditingPost] = useState(false);
@@ -299,12 +304,14 @@ const Admin: React.FC = () => {
   const [businessContact, setBusinessContact] = useState<BusinessContactInfo | null>(null);
   const [paymentQR, setPaymentQR] = useState('');
   
+  // Diagnosis Data
   const [diagnosisIssues, setDiagnosisIssues] = useState<DiagnosisIssue[]>([]);
   const [diagnosisWidgetConfig, setDiagnosisWidgetConfig] = useState<DiagnosisWidgetConfig>({title: '', description: ''});
   const [editingIssue, setEditingIssue] = useState<Partial<DiagnosisIssue>>({});
   const [isEditingIssue, setIsEditingIssue] = useState(false);
   const [diagnosisSubmissions, setDiagnosisSubmissions] = useState<DiagnosisSubmission[]>([]);
 
+  // Solution Data
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isEditingLesson, setIsEditingLesson] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Partial<Lesson>>({});
@@ -315,15 +322,18 @@ const Admin: React.FC = () => {
   const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
   const [lessonSearchQuery, setLessonSearchQuery] = useState('');
 
+  // Dashboard Data
   const [projects, setProjects] = useState<DashboardProject[]>([]);
   const [isEditingProject, setIsEditingProject] = useState(false);
   const [editingProject, setEditingProject] = useState<Partial<DashboardProject>>({});
 
+  // Resource Data
   const [knowledgeCategories, setKnowledgeCategories] = useState<KnowledgeCategory[]>([]);
   const [editingCategory, setEditingCategory] = useState<Partial<KnowledgeCategory>>({});
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [activeResourceSection, setActiveResourceSection] = useState<KnowledgeSectionType>('ai_reply');
 
+  // User & Permission Data
   const [users, setUsers] = useState<User[]>([]);
   const [editingUser, setEditingUser] = useState<Partial<User>>({});
   const [isEditingUser, setIsEditingUser] = useState(false);
@@ -331,16 +341,19 @@ const Admin: React.FC = () => {
   const [userSubTab, setUserSubTab] = useState<'list' | 'plans' | 'permissions' | 'business'>('list');
   const [selectedUserForDetail, setSelectedUserForDetail] = useState<string | null>(null);
   const [plansConfig, setPlansConfig] = useState<PlansPageConfig | null>(null);
+  const [isEditingPlan, setIsEditingPlan] = useState(false);
   
+  // Permission Data
   const [permissions, setPermissions] = useState<PermissionDefinition[]>([]);
   const [permConfig, setPermConfig] = useState<PermissionConfig>({ free: {}, pro: {} });
   const [newPermission, setNewPermission] = useState({ key: '', label: '', module: '' });
 
+  // Behavior Module State
   const [behaviorTab, setBehaviorTab] = useState<'overview' | 'activity' | 'notes'>('overview');
   const [behaviorFilterUser, setBehaviorFilterUser] = useState<string>('all');
   const [behaviorFilterType, setBehaviorFilterType] = useState<string>('all');
   const [behaviorSelectedIds, setBehaviorSelectedIds] = useState<Set<string>>(new Set());
-  const [activities, setActivities] = useState<any[]>([]); 
+  const [activities, setActivities] = useState<any[]>([]); // Consolidated Activity Log
   const [stats, setStats] = useState({ totalInteractions: 0, notesCount: 0, videoCount: 0, activeUsers: 0 });
   const [popularContent, setPopularContent] = useState<any[]>([]);
 
@@ -363,6 +376,7 @@ const Admin: React.FC = () => {
     setPlansConfig(getPlansPageConfig());
   }, []);
 
+  // --- Consolidated Data Loading for Behavior Tab ---
   useEffect(() => {
     const allUsers = getAllUsers();
     const watched = getWatchedHistory();
@@ -375,6 +389,7 @@ const Admin: React.FC = () => {
 
     let combined: any[] = [];
 
+    // Map Videos
     watched.forEach(w => {
         const lesson = lessonData.find(l => l.id === w.lessonId);
         const user = allUsers.find(u => u.id === w.userId);
@@ -392,6 +407,7 @@ const Admin: React.FC = () => {
         });
     });
 
+    // Map Articles
     read.forEach(r => {
         const post = postData.find(p => p.id === r.articleId);
         const user = allUsers.find(u => u.id === r.userId);
@@ -409,6 +425,7 @@ const Admin: React.FC = () => {
         });
     });
 
+    // Map Notes
     notes.forEach(n => {
         combined.push({
             id: `n-${n.id}`,
@@ -424,6 +441,7 @@ const Admin: React.FC = () => {
         });
     });
 
+    // Map Uploads
     uploads.forEach(u => {
         combined.push({
             id: `u-${u.id}`,
@@ -439,6 +457,7 @@ const Admin: React.FC = () => {
         });
     });
 
+    // Map Diagnosis
     diagnosis.forEach(d => {
         combined.push({
             id: `d-${d.id}`,
@@ -454,9 +473,11 @@ const Admin: React.FC = () => {
         });
     });
 
+    // Sort and Set
     combined.sort((a, b) => b.timestamp - a.timestamp);
     setActivities(combined);
 
+    // Calculate Stats
     const uniqueUsers = new Set(combined.map(a => a.userId)).size;
     setStats({
         totalInteractions: combined.length,
@@ -465,6 +486,7 @@ const Admin: React.FC = () => {
         activeUsers: uniqueUsers
     });
 
+    // Calculate Popular Content
     const contentCounts: Record<string, {title: string, type: string, count: number}> = {};
     combined.forEach(a => {
         if (a.type === 'video' || a.type === 'article') {
@@ -477,7 +499,7 @@ const Admin: React.FC = () => {
     });
     setPopularContent(Object.values(contentCounts).sort((a, b) => b.count - a.count).slice(0, 5));
 
-  }, [behaviorTab]);
+  }, [behaviorTab]); // Refresh when entering tab
 
   const handleDeleteKnowledgeCategory = (id: string) => { if (window.confirm('确定要删除此分类及其所有内容吗？')) { deleteKnowledgeCategory(id); setKnowledgeCategories(getKnowledgeCategories()); } };
   const handleSaveCategory = () => { if (!editingCategory.name) return alert('分类名称不能为空'); const newCategory = { ...editingCategory, id: editingCategory.id || Date.now().toString(), items: editingCategory.items || [], section: activeResourceSection } as KnowledgeCategory; saveKnowledgeCategory(newCategory); setKnowledgeCategories(getKnowledgeCategories()); setIsEditingCategory(false); setEditingCategory({}); };
@@ -545,15 +567,18 @@ const Admin: React.FC = () => {
   const handleDeleteUser = (id: string) => { if(window.confirm('确定删除?')) { deleteUser(id); setUsers(getAllUsers()); } };
   const handleSaveUser = () => { if(!editingUser.name || !editingUser.email) return alert('信息不全'); saveUser({...editingUser, id: editingUser.id || Date.now().toString(), role: editingUser.role || 'user', plan: editingUser.plan || 'free', isAuthenticated: true} as User); setUsers(getAllUsers()); setIsEditingUser(false); setEditingUser({}); };
   
+  // Plans & Permission Logic
   const handleSavePlanConfig = () => { if(plansConfig) { savePlansPageConfig(plansConfig); alert('订阅配置已保存'); } };
   const handleAddPermission = () => { if(!newPermission.key || !newPermission.label) return alert('Key and Label required'); savePermissionDefinition({ ...newPermission }); setPermissions(getPermissionDefinitions()); setNewPermission({ key: '', label: '', module: '' }); };
   const handleDeletePermission = (key: string) => { if(window.confirm('确定删除?')) { deletePermissionDefinition(key); setPermissions(getPermissionDefinitions()); } };
   const togglePermission = (plan: 'free' | 'pro', key: PermissionKey) => { const newConfig = { ...permConfig }; if(!newConfig[plan]) newConfig[plan] = {}; newConfig[plan][key] = !newConfig[plan][key]; setPermConfig(newConfig); savePermissionConfig(newConfig); };
   
+  // Business Logic
   const handleSaveBusinessConfig = () => { if(businessContact) { saveBusinessContactInfo(businessContact); alert('商务配置已保存'); } };
   const handleQRUpload = (e: React.ChangeEvent<HTMLInputElement>) => { if(e.target.files?.[0]) { const reader = new FileReader(); reader.onload = (ev) => { if(ev.target?.result) { savePaymentQRCode(ev.target.result as string); setPaymentQR(ev.target.result as string); } }; reader.readAsDataURL(e.target.files[0]); } };
   const handleDeleteLead = (id: string) => { if(window.confirm('Delete?')) { deleteBusinessLead(id); setBusinessLeads(getBusinessLeads()); } };
 
+  // Export Logic
   const handleBehaviorExport = () => {
     const selectedData = activities.filter(a => behaviorSelectedIds.has(a.id));
     if (selectedData.length === 0) return alert('请先选择要导出的记录');
@@ -578,6 +603,7 @@ const Admin: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  // Bulk Selection Logic
   const toggleSelectAll = (checked: boolean) => {
       const filtered = activities.filter(a => 
           (behaviorFilterUser === 'all' || a.userId === behaviorFilterUser) &&
@@ -708,6 +734,7 @@ const Admin: React.FC = () => {
 
   const renderBlogTab = () => (
     <div className="space-y-8 animate-in fade-in">
+      {/* Intro Video Section */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Video size={20} /> 首页视频配置</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -716,10 +743,73 @@ const Admin: React.FC = () => {
                   <label className="block text-xs font-bold text-slate-500 mb-1">视频标题</label>
                   <input className="w-full border p-2 rounded text-sm" value={introVideo?.title || ''} onChange={e => setIntroVideo(prev => prev ? {...prev, title: e.target.value} : null)} />
               </div>
+              
+              {/* Modified Section Start */}
               <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">视频 URL</label>
-                  <input className="w-full border p-2 rounded text-sm" value={introVideo?.url || ''} onChange={e => setIntroVideo(prev => prev ? {...prev, url: e.target.value} : null)} />
+                  <label className="block text-xs font-bold text-slate-500 mb-2">视频来源</label>
+                  <div className="flex gap-4 mb-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                          <input 
+                            type="radio" 
+                            name="introSourceType" 
+                            checked={introVideo?.sourceType === 'link' || !introVideo?.sourceType} 
+                            onChange={() => setIntroVideo(prev => prev ? {...prev, sourceType: 'link'} : null)} 
+                            className="text-blue-600" 
+                          />
+                          <span className="text-sm text-slate-700">外部链接</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                          <input 
+                            type="radio" 
+                            name="introSourceType" 
+                            checked={introVideo?.sourceType === 'upload'} 
+                            onChange={() => setIntroVideo(prev => prev ? {...prev, sourceType: 'upload'} : null)} 
+                            className="text-blue-600" 
+                          />
+                          <span className="text-sm text-slate-700">本地上传</span>
+                      </label>
+                  </div>
+                  
+                  {introVideo?.sourceType === 'upload' ? (
+                      <div className="flex gap-2">
+                          <input 
+                            className="w-full border p-2 rounded text-sm bg-slate-50 text-slate-500" 
+                            value={introVideo?.url && introVideo.url.startsWith('data:') ? '已选择本地视频文件' : introVideo.url || ''} 
+                            readOnly 
+                            placeholder="请上传视频文件" 
+                          />
+                          <label className="px-3 py-2 border border-slate-200 bg-slate-50 rounded hover:bg-slate-100 cursor-pointer flex items-center gap-1 transition-colors">
+                              <Upload size={16} className="text-slate-600" />
+                              <span className="text-xs font-bold text-slate-600">上传</span>
+                              <input type="file" className="hidden" accept="video/*" onChange={(e) => handleMediaImport(e, (url) => setIntroVideo(prev => prev ? {...prev, url: url} : null))} />
+                          </label>
+                      </div>
+                  ) : (
+                      <input 
+                        className="w-full border p-2 rounded text-sm" 
+                        value={introVideo?.url || ''} 
+                        onChange={e => setIntroVideo(prev => prev ? {...prev, url: e.target.value} : null)} 
+                        placeholder="输入视频 URL (如 https://example.com/video.mp4)" 
+                      />
+                  )}
               </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">时长</label>
+                      <input className="w-full border p-2 rounded text-sm" value={introVideo?.duration || ''} onChange={e => setIntroVideo(prev => prev ? {...prev, duration: e.target.value} : null)} placeholder="例如 05:30" />
+                  </div>
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">发布人</label>
+                      <input className="w-full border p-2 rounded text-sm" value={introVideo?.publisher || ''} onChange={e => setIntroVideo(prev => prev ? {...prev, publisher: e.target.value} : null)} placeholder="发布者姓名" />
+                  </div>
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">发布日期</label>
+                      <input type="date" className="w-full border p-2 rounded text-sm" value={introVideo?.publishDate || ''} onChange={e => setIntroVideo(prev => prev ? {...prev, publishDate: e.target.value} : null)} />
+                  </div>
+              </div>
+              {/* Modified Section End */}
+
               <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">封面图 URL</label>
                   <div className="flex gap-2">
@@ -733,15 +823,26 @@ const Admin: React.FC = () => {
               </div>
               <button onClick={handleSaveIntroVideo} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700">保存视频配置</button>
            </div>
-           <div className="bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden aspect-video relative">
-               {introVideo?.thumbnail && <img src={introVideo.thumbnail} className="w-full h-full object-cover opacity-50" />}
-               <div className="absolute inset-0 flex items-center justify-center">
-                   <span className="text-slate-500 font-bold">预览区域</span>
-               </div>
+           <div className="bg-slate-100 rounded-lg flex flex-col items-center justify-center overflow-hidden aspect-video relative border border-slate-200">
+               {introVideo?.url ? (
+                   <video 
+                     src={introVideo.url} 
+                     poster={introVideo.thumbnail}
+                     controls
+                     className="w-full h-full object-contain bg-black"
+                   />
+               ) : (
+                   <div className="text-slate-400 flex flex-col items-center">
+                        <Video size={48} className="mb-2 opacity-20" />
+                        <span className="text-xs font-medium">视频预览区域</span>
+                        <span className="text-[10px] mt-1">配置 URL 或上传视频后在此预览</span>
+                   </div>
+               )}
            </div>
         </div>
       </div>
 
+      {/* Blog Posts List */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
             <h3 className="font-bold text-slate-800 flex items-center gap-2"><BookOpen size={20} /> 文章列表</h3>
@@ -773,6 +874,7 @@ const Admin: React.FC = () => {
         </table>
       </div>
 
+      {/* About Us Config */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Building2 size={20} /> 关于我们 / 页脚配置</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -787,6 +889,7 @@ const Admin: React.FC = () => {
           </div>
       </div>
 
+      {/* Blog Edit Modal */}
       {isEditingPost && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-xl w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95">
@@ -831,6 +934,7 @@ const Admin: React.FC = () => {
 
   const renderDiagnosisTab = () => (
     <div className="space-y-8 animate-in fade-in">
+        {/* Widget Configuration */}
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Settings size={20} /> 博客页诊断组件配置</h3>
             <div className="space-y-4">
@@ -841,6 +945,7 @@ const Admin: React.FC = () => {
             </div>
         </div>
 
+        {/* Issues Management */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                 <h3 className="font-bold text-slate-800 flex items-center gap-2"><Stethoscope size={20} /> 诊断问题预设</h3>
@@ -871,6 +976,7 @@ const Admin: React.FC = () => {
             </table>
         </div>
 
+        {/* Submissions Log */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-200 bg-slate-50">
                 <h3 className="font-bold text-slate-800 flex items-center gap-2"><ClipboardList size={20} /> 用户提交记录</h3>
@@ -904,6 +1010,7 @@ const Admin: React.FC = () => {
             </div>
         </div>
 
+        {/* Edit Modal */}
         {isEditingIssue && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-xl w-full max-w-lg p-6 animate-in zoom-in-95 relative">

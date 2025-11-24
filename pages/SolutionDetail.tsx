@@ -6,7 +6,7 @@ import {
   ListVideo, Clock, ChevronRight, Search, Sparkles,
   Highlighter, PenTool, Maximize, Minimize, Settings,
   ChevronLeft, ArrowLeft, X, Crown, ArrowRight, Quote,
-  Wand2
+  Wand2, Star, MapPin, Lightbulb, Wrench, Target, Layers, Tag
 } from 'lucide-react';
 import { Note, ChatMessage, Lesson, Highlight, AdminNote, User } from '../types';
 import { createChatSession, sendMessageToAI } from '../services/geminiService';
@@ -15,6 +15,13 @@ import { saveAdminNote, saveWatchedLesson } from '../services/userDataService';
 import { hasPermission } from '../services/permissionService';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppRoute } from '../types';
+
+interface HighlightCategory {
+  id: string;
+  label: string;
+  type: 'concept' | 'tactic' | 'case' | 'custom' | 'general';
+  items: Highlight[];
+}
 
 const SolutionDetail: React.FC = () => {
   const navigate = useNavigate();
@@ -36,7 +43,8 @@ const SolutionDetail: React.FC = () => {
   // Highlight Generation State
   const [highlightInput, setHighlightInput] = useState('');
   const [isGeneratingHighlights, setIsGeneratingHighlights] = useState(false);
-  const [displayedHighlights, setDisplayedHighlights] = useState<Highlight[]>([]);
+  const [highlightCategories, setHighlightCategories] = useState<HighlightCategory[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<string>('default');
 
   // Selection Menu State
   const [selectionMenu, setSelectionMenu] = useState<{x: number, y: number, text: string} | null>(null);
@@ -83,14 +91,22 @@ const SolutionDetail: React.FC = () => {
   // Sync displayed highlights when lesson changes
   useEffect(() => {
     if (currentLesson) {
-      // Initial "Auto-Parse" simulation if highlights are empty, or just load default ones
+      // Initial Default Category
       const initialHighlights = currentLesson.highlights?.length > 0 ? currentLesson.highlights : [
-          { label: "核心观点", time: 10, color: 'bg-blue-100 text-blue-700 border border-blue-200' },
-          { label: "案例分析", time: Math.floor(currentLesson.durationSec * 0.3), color: 'bg-purple-100 text-purple-700 border border-purple-200' },
-          { label: "实操步骤", time: Math.floor(currentLesson.durationSec * 0.6), color: 'bg-green-100 text-green-700 border border-green-200' },
-          { label: "关键总结", time: Math.floor(currentLesson.durationSec * 0.85), color: 'bg-orange-100 text-orange-700 border border-orange-200' }
+          { label: "核心观点", time: 10, color: 'bg-blue-100 text-blue-700 border-blue-500' },
+          { label: "案例分析", time: Math.floor(currentLesson.durationSec * 0.3), color: 'bg-purple-100 text-purple-700 border-purple-500' },
+          { label: "实操步骤", time: Math.floor(currentLesson.durationSec * 0.6), color: 'bg-green-100 text-green-700 border-green-500' },
+          { label: "关键总结", time: Math.floor(currentLesson.durationSec * 0.85), color: 'bg-orange-100 text-orange-700 border-orange-500' }
       ];
-      setDisplayedHighlights(initialHighlights);
+      
+      setHighlightCategories([{
+          id: 'default',
+          label: '默认概览',
+          type: 'general',
+          items: initialHighlights
+      }]);
+      setActiveCategoryId('default');
+      
       setHighlightInput('');
       setSelectionMenu(null);
       // Track history with user ID if available
@@ -99,6 +115,9 @@ const SolutionDetail: React.FC = () => {
       saveWatchedLesson(currentLesson.id, userId); 
     }
   }, [currentLessonId, currentLesson]);
+
+  // Get active highlights
+  const activeHighlights = highlightCategories.find(c => c.id === activeCategoryId)?.items || [];
 
   // Initialize Chat
   useEffect(() => {
@@ -184,20 +203,11 @@ const SolutionDetail: React.FC = () => {
   };
 
   const handlePlayAll = () => {
-      if(displayedHighlights.length > 0) {
-          handleJumpToTime(displayedHighlights[0].time);
+      if(activeHighlights.length > 0) {
+          handleJumpToTime(activeHighlights[0].time);
           // In a real app, this would queue playback of only highlight segments
           alert("开始播放所有高亮片段 (演示模式: 从第一个高亮开始播放)");
       }
-  };
-
-  const handleLessonChange = (lessonId: string) => {
-    setCurrentLessonId(lessonId);
-    navigate(AppRoute.SOLUTION_DETAIL.replace(':id', lessonId));
-    setCurrentTime(0);
-    setIsPlaying(false);
-    setPlaybackRate(1.0); // Reset speed on lesson change
-    setChatMessages([{ id: Date.now().toString(), role: 'model', text: "新课程已加载。有什么我可以帮您的吗？" }]);
   };
 
   const handleToggleFullScreen = () => {
@@ -268,74 +278,123 @@ const SolutionDetail: React.FC = () => {
       let prompt = '';
       
       if (highlightInput.trim()) {
-          // User provided a specific topic
+          // User provided a specific topic -> Single Custom Category
           prompt = `
             任务：基于以下视频字幕，找出与主题“${highlightInput}”最相关的2-3个关键时间点。
             字幕：
             ${transcriptText}
 
-            请严格按此格式返回（不要包含任何其他文字）：
-            简短标签(4-8字)|秒数
-            简短标签(4-8字)|秒数
+            请 strictly 按此格式返回：
+            DIMENSION: Search Result
+            [Label]|[Seconds]
+            [Label]|[Seconds]
 
             要求：
             1. 标签要精准概括该片段内容。
             2. 秒数必须是整数。
-            3. 如果找不到相关内容，请返回空字符串。
           `;
       } else {
-          // Auto-analysis of the whole video
+          // Auto-analysis -> Multiple Categories
           prompt = `
-            任务：请分析整段视频字幕，提取 5-6 个最重要的核心内容节点（Highligts），作为视频的章节目录。
+            Task: Analyze the video transcript and generate structured highlights organized into 3 distinct dimensions:
+            1. "Core Concepts" (核心观点 - Key theories and definitions)
+            2. "Practical Tactics" (实操技巧 - How-to steps)
+            3. "Case Studies" (案例分析 - Stories and examples)
+
+            Format the output strictly as follows (Do not add markdown code blocks):
+            
+            DIMENSION: Core Concepts
+            [Label]|[Seconds]
+            [Label]|[Seconds]
+            
+            DIMENSION: Practical Tactics
+            [Label]|[Seconds]
+            
+            DIMENSION: Case Studies
+            [Label]|[Seconds]
+            
+            Requirements:
+            1. Label should be Chinese (4-10 chars).
+            2. Seconds must be integer.
+            3. Find at least 2 items for each dimension if possible.
             字幕：
             ${transcriptText}
-
-            请严格按此格式返回（不要包含任何其他文字）：
-            简短标签(4-8字)|秒数
-            简短标签(4-8字)|秒数
-
-            要求：
-            1. 标签要精炼专业，概括该时间点开始的核心话题。
-            2. 秒数必须是整数。
-            3. 节点应在视频中均匀分布，覆盖开始、中间和结尾的重要转折。
           `;
       }
 
       const responseText = await sendMessageToAI(chat, prompt);
       
-      // Parse response
-      const newHighlights: Highlight[] = [];
+      // Parse response with Categories
+      const newCategories: HighlightCategory[] = [];
       const lines = responseText.split('\n');
       
-      // Distinct colors for generated highlights
-      const genColors = [
-        'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200',
-        'bg-violet-100 text-violet-700 border border-violet-200', 
-        'bg-cyan-100 text-cyan-700 border border-cyan-200',
-        'bg-emerald-100 text-emerald-700 border border-emerald-200',
-        'bg-rose-100 text-rose-700 border border-rose-200'
-      ];
+      let currentCategory: Partial<HighlightCategory> | null = null;
+      
+      // Color palettes for different types
+      const colorMap: Record<string, string[]> = {
+          'Core Concepts': ['bg-blue-100 text-blue-700 border-blue-500', 'bg-indigo-100 text-indigo-700 border-indigo-500'],
+          'Practical Tactics': ['bg-green-100 text-green-700 border-green-500', 'bg-emerald-100 text-emerald-700 border-emerald-500'],
+          'Case Studies': ['bg-orange-100 text-orange-700 border-orange-500', 'bg-amber-100 text-amber-700 border-amber-500'],
+          'Search Result': ['bg-purple-100 text-purple-700 border-purple-500', 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-500']
+      };
 
-      let colorIdx = 0;
+      let itemIdx = 0;
+
       for (const line of lines) {
-        const parts = line.split('|');
-        if (parts.length >= 2) {
-            const label = parts[0].trim().replace(/[\*\-]/g, '');
-            const time = parseInt(parts[1].trim());
-            if (label && !isNaN(time)) {
-                newHighlights.push({
-                    label: label,
-                    time: time,
-                    color: genColors[colorIdx % genColors.length]
-                });
-                colorIdx++;
-            }
-        }
+          const trimLine = line.trim();
+          if (trimLine.startsWith('DIMENSION:')) {
+              // Save previous
+              if (currentCategory && currentCategory.items && currentCategory.items.length > 0) {
+                  newCategories.push(currentCategory as HighlightCategory);
+              }
+              
+              const label = trimLine.replace('DIMENSION:', '').trim();
+              let type: HighlightCategory['type'] = 'general';
+              if (label.includes('Concept') || label.includes('观点')) type = 'concept';
+              else if (label.includes('Tactic') || label.includes('技巧')) type = 'tactic';
+              else if (label.includes('Case') || label.includes('案例')) type = 'case';
+              else if (label.includes('Search')) type = 'custom';
+
+              currentCategory = {
+                  id: `cat-${Date.now()}-${newCategories.length}`,
+                  label: label,
+                  type: type,
+                  items: []
+              };
+              itemIdx = 0;
+          } else if (trimLine.includes('|') && currentCategory) {
+              const parts = trimLine.split('|');
+              if (parts.length >= 2) {
+                  const label = parts[0].trim().replace(/[\*\-]/g, '');
+                  const time = parseInt(parts[1].trim());
+                  
+                  if (label && !isNaN(time)) {
+                      // Determine color
+                      const palette = colorMap[currentCategory.label!] || colorMap['Search Result'];
+                      const color = palette[itemIdx % palette.length];
+                      
+                      currentCategory.items!.push({ label, time, color });
+                      itemIdx++;
+                  }
+              }
+          }
+      }
+      // Push last category
+      if (currentCategory && currentCategory.items && currentCategory.items.length > 0) {
+          newCategories.push(currentCategory as HighlightCategory);
       }
 
-      if (newHighlights.length > 0) {
-        setDisplayedHighlights(newHighlights); 
-        setHighlightInput(''); // Clear input on success
+      if (newCategories.length > 0) {
+        if (highlightInput.trim()) {
+            // If custom search, just replace/add the custom one
+            setHighlightCategories([newCategories[0]]);
+            setActiveCategoryId(newCategories[0].id);
+        } else {
+            // If auto parse, show all generated categories
+            setHighlightCategories(newCategories);
+            setActiveCategoryId(newCategories[0].id);
+        }
+        setHighlightInput('');
       } else {
         alert("AI未能识别到有效内容，请重试或更换关键词。");
       }
@@ -420,25 +479,53 @@ const SolutionDetail: React.FC = () => {
   const handleExportTranscript = () => {
     if (!hasPermission(currentUser, 'export_transcript')) {
       setShowUpgradeModal(true);
-    } else {
-      // Logic to download transcript would go here
-      alert("开始下载字幕文稿...");
+      return;
     }
+    
+    const title = `# ${currentLesson.title}\n\n`;
+    const content = currentLesson.transcript
+      .map(t => `[${formatTime(t.time)}] ${t.text}`)
+      .join('\n\n');
+      
+    const fullText = title + content;
+    const blob = new Blob([fullText], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${currentLesson.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_transcript.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
-  // Extract color class for visualization
-  const getHighlightColorHex = (colorClass: string) => {
-      if (colorClass.includes('blue')) return '#3b82f6';
-      if (colorClass.includes('purple')) return '#a855f7';
-      if (colorClass.includes('green')) return '#22c55e';
-      if (colorClass.includes('orange')) return '#f97316';
-      if (colorClass.includes('red')) return '#ef4444';
-      if (colorClass.includes('fuchsia')) return '#d946ef';
-      if (colorClass.includes('violet')) return '#8b5cf6';
-      if (colorClass.includes('cyan')) return '#06b6d4';
-      if (colorClass.includes('emerald')) return '#10b981';
-      if (colorClass.includes('rose')) return '#f43f5e';
-      return '#94a3b8'; // Slate 400
+  // Extract color for visualization style
+  const getHighlightStyles = (colorClass: string) => {
+      const borderColor = colorClass.match(/border-([a-z]+)-(\d+)/);
+      const bgColor = colorClass.match(/bg-([a-z]+)-(\d+)/);
+      const textColor = colorClass.match(/text-([a-z]+)-(\d+)/);
+      
+      // Default Blue
+      let hexColor = '#3b82f6'; 
+      
+      if (colorClass.includes('purple') || colorClass.includes('fuchsia')) hexColor = '#a855f7';
+      else if (colorClass.includes('green') || colorClass.includes('emerald')) hexColor = '#22c55e';
+      else if (colorClass.includes('orange') || colorClass.includes('amber')) hexColor = '#f97316';
+      else if (colorClass.includes('red') || colorClass.includes('rose')) hexColor = '#ef4444';
+      else if (colorClass.includes('indigo') || colorClass.includes('violet')) hexColor = '#6366f1';
+      
+      return { hexColor, className: colorClass };
+  };
+
+  // Helper for Category Icon
+  const getCategoryIcon = (type: HighlightCategory['type']) => {
+      switch(type) {
+          case 'concept': return <Lightbulb size={14} />;
+          case 'tactic': return <Wrench size={14} />;
+          case 'case': return <Layers size={14} />;
+          case 'custom': return <Target size={14} />;
+          default: return <Star size={14} />;
+      }
   };
 
   return (
@@ -600,8 +687,8 @@ const SolutionDetail: React.FC = () => {
         <div className="flex-1 overflow-y-auto bg-slate-50">
             <div className="p-6 border-b border-slate-200 bg-white">
                 
-                {/* Input Section */}
-                <div className="flex gap-4 items-center mb-6">
+                {/* Topic Input Section */}
+                <div className="flex gap-4 items-center mb-4">
                     <div className="relative flex-1">
                         {highlightInput.trim() ? (
                             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -609,8 +696,8 @@ const SolutionDetail: React.FC = () => {
                             <Wand2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-600" />
                         )}
                         <input 
-                            className="w-full pl-10 pr-24 py-2.5 text-sm border border-slate-200 bg-slate-50 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none placeholder:text-slate-400"
-                            placeholder="输入感兴趣的主题，或留空进行 AI 全篇智能解析..."
+                            className="w-full pl-10 pr-24 py-3 text-sm border border-slate-200 bg-slate-50 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none placeholder:text-slate-400"
+                            placeholder="输入主题 (如“薪资”), 或留空进行 AI 全篇多维度解析..."
                             value={highlightInput}
                             onChange={(e) => setHighlightInput(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleGenerateHighlights()}
@@ -635,57 +722,114 @@ const SolutionDetail: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Visual Highlight Timeline Bar */}
-                <div className="h-2 w-full bg-slate-100 rounded-full relative mb-4 overflow-hidden">
-                    {displayedHighlights.map((hl, idx) => {
+                {/* Category Pills */}
+                {highlightCategories.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto pb-6 scrollbar-hide animate-in slide-in-from-top-2">
+                        {highlightCategories.map(cat => {
+                            const isActive = activeCategoryId === cat.id;
+                            let colorClass = 'bg-slate-100 text-slate-500 hover:bg-slate-200';
+                            if (isActive) {
+                                switch(cat.type) {
+                                    case 'concept': colorClass = 'bg-blue-600 text-white shadow-md shadow-blue-200'; break;
+                                    case 'tactic': colorClass = 'bg-green-600 text-white shadow-md shadow-green-200'; break;
+                                    case 'case': colorClass = 'bg-orange-600 text-white shadow-md shadow-orange-200'; break;
+                                    case 'custom': colorClass = 'bg-purple-600 text-white shadow-md shadow-purple-200'; break;
+                                    default: colorClass = 'bg-slate-800 text-white shadow-md';
+                                }
+                            }
+
+                            return (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => setActiveCategoryId(cat.id)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap border border-transparent ${colorClass}`}
+                                >
+                                    {getCategoryIcon(cat.type)}
+                                    {cat.label}
+                                    <span className={`ml-1 opacity-60 text-[10px]`}>{cat.items.length}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Stylized Visual Highlight Timeline */}
+                <div className="mb-8 relative px-2">
+                    <div className="h-1.5 w-full bg-slate-200 rounded-full relative overflow-hidden">
+                        <div className="absolute top-0 left-0 bottom-0 bg-slate-300/50 w-full"></div>
+                    </div>
+                    
+                    {/* Render highlight markers based on ACTIVE category */}
+                    {activeHighlights.map((hl, idx) => {
                         const leftPercent = (hl.time / currentLesson.durationSec) * 100;
-                        const color = getHighlightColorHex(hl.color);
+                        const { hexColor, className } = getHighlightStyles(hl.color);
                         return (
                             <div 
                                 key={idx}
-                                className="absolute top-0 bottom-0 w-1.5 rounded-full z-10"
-                                style={{ left: `${leftPercent}%`, backgroundColor: color }}
-                                title={hl.label}
-                            />
+                                className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2 cursor-pointer group z-10"
+                                style={{ left: `${leftPercent}%`, top: '3px' }} // Align center of 1.5 (0.75) -> approx
+                                onClick={() => handleJumpToTime(hl.time)}
+                            >
+                                <div className={`w-4 h-4 lg:w-6 lg:h-6 rounded-full flex items-center justify-center shadow-md border-2 bg-white transition-transform group-hover:scale-125 ${className.split(' ').filter(c=>c.startsWith('border')).join(' ')}`}>
+                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hexColor }}></div>
+                                </div>
+                                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg z-20">
+                                    {hl.label} ({formatTime(hl.time)})
+                                </div>
+                            </div>
                         );
                     })}
                 </div>
 
                 {/* Highlights List View */}
                 <div className="relative">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                            <ListVideo size={16} /> 
+                            {highlightCategories.find(c => c.id === activeCategoryId)?.label || '精彩片段'} 
+                            <span className="text-slate-400 font-normal text-xs">列表</span>
+                        </h3>
+                        {activeHighlights.length > 0 && (
+                            <button 
+                                onClick={handlePlayAll}
+                                className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1"
+                            >
+                                <Play size={12} className="fill-current" /> 顺序播放
+                            </button>
+                        )}
+                    </div>
+
                     <div className="space-y-3">
-                        {displayedHighlights.length === 0 && <div className="text-center text-slate-400 py-4 text-sm">暂无高亮标记</div>}
-                        {displayedHighlights.map((hl, idx) => {
-                            const colorClass = hl.color.split(' ')[0].replace('bg-', 'text-').replace('-100', '-500'); // Roughly extract color for icon
+                        {activeHighlights.length === 0 && <div className="text-center text-slate-400 py-8 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-200">暂无高亮标记，请尝试 AI 解析</div>}
+                        {activeHighlights.map((hl, idx) => {
+                            const { hexColor, className } = getHighlightStyles(hl.color);
+                            const bgClass = className.split(' ').find(c => c.startsWith('bg-')) || 'bg-slate-100';
+                            const isCurrent = Math.abs(currentTime - hl.time) < 5; // Highlight active item if time matches
+
                             return (
                                 <div 
                                     key={idx} 
                                     onClick={() => handleJumpToTime(hl.time)}
-                                    className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 cursor-pointer group transition-colors border border-transparent hover:border-slate-100"
+                                    className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${
+                                        isCurrent ? 'border-blue-400 shadow-md scale-[1.02]' : 'border-transparent hover:border-slate-200 hover:shadow-sm'
+                                    } ${bgClass} bg-opacity-30 hover:bg-opacity-50`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-3 h-3 rounded-full ${colorClass.replace('text-', 'bg-')} shadow-sm`}></div>
-                                        <span className="text-sm font-medium text-slate-700 group-hover:text-blue-700 transition-colors">{hl.label}</span>
+                                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+                                            <span className="text-xs font-bold" style={{ color: hexColor }}>{idx + 1}</span>
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-bold text-slate-800">{hl.label}</div>
+                                            <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">点击跳转至 {formatTime(hl.time)}</div>
+                                        </div>
                                     </div>
-                                    <div className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded group-hover:bg-white group-hover:shadow-sm transition-all">
+                                    <div className="text-xs font-mono text-slate-500 bg-white/80 px-2 py-1 rounded">
                                         {formatTime(hl.time)}
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
-
-                    {/* Floating Play All Button */}
-                    {displayedHighlights.length > 0 && (
-                        <div className="mt-6 flex justify-end">
-                            <button 
-                                onClick={handlePlayAll}
-                                className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg hover:bg-black hover:scale-105 transition-all active:scale-95"
-                            >
-                                <Play size={16} className="fill-current" /> 全部播放
-                            </button>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>
@@ -748,9 +892,9 @@ const SolutionDetail: React.FC = () => {
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-md transition-colors border border-slate-200 group"
                   >
                     <Download size={14} className="text-slate-400 group-hover:text-slate-600" />
-                    <span>导出</span>
+                    <span>导出 .md</span>
                     {!hasPermission(currentUser, 'export_transcript') && (
-                        <span className="bg-blue-600 text-white text-[10px] px-1 py-0.5 rounded font-bold ml-1">专业版</span>
+                        <span className="bg-blue-600 text-white text-[10px] px-1 py-0.5 rounded font-bold ml-1">PRO</span>
                     )}
                   </button>
                </div>
@@ -765,14 +909,14 @@ const SolutionDetail: React.FC = () => {
                     return (
                         <div 
                         key={idx} 
-                        className={`flex gap-4 group transition-opacity duration-500 ${isActive ? 'active-transcript opacity-100' : 'opacity-60 hover:opacity-90'}`}
+                        className={`flex gap-4 group transition-opacity duration-500 cursor-pointer ${isActive ? 'active-transcript opacity-100' : 'opacity-60 hover:opacity-90'}`}
+                        onClick={() => handleJumpToTime(line.time)}
                         >
-                        <button 
-                            onClick={() => handleJumpToTime(line.time)}
-                            className={`text-xs font-mono mt-1 cursor-pointer hover:underline shrink-0 ${isActive ? 'text-blue-600 font-bold' : 'text-slate-400'}`}
+                        <span
+                            className={`text-xs font-mono mt-1 shrink-0 w-10 text-right ${isActive ? 'text-blue-600 font-bold' : 'text-slate-400'}`}
                         >
                             {formatTime(line.time)}
-                        </button>
+                        </span>
                         <p className={`text-sm leading-relaxed ${isActive ? 'text-slate-900 font-medium' : 'text-slate-600'}`}>
                             {line.text}
                         </p>

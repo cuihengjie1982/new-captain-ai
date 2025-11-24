@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Settings, BookOpen, Video, Database, Plus, Trash2, Edit, Save, X, Bot,
@@ -13,17 +14,13 @@ import { getKnowledgeCategories, saveKnowledgeCategory, deleteKnowledgeCategory 
 import { getDashboardProjects, saveDashboardProject, deleteDashboardProject } from '../services/dashboardService';
 import { getUserUploads, deleteUserUpload, getAdminNotes, updateAdminNote, deleteAdminNote, updateUserUploadStatus, getAllUsers, saveUser, deleteUser, getEmailLogs, getBusinessLeads, deleteBusinessLead, getDiagnosisSubmissions, deleteDiagnosisSubmission, updateBusinessLeadStatus, getWatchedHistory, getReadHistory } from '../services/userDataService';
 import { getPermissionConfig, savePermissionConfig, getPermissionDefinitions, savePermissionDefinition, deletePermissionDefinition } from '../services/permissionService';
+import { createChatSession, sendMessageToAI } from '../services/geminiService';
 
 // Specific AI Models for Video Transcript Generation
 const VIDEO_AI_MODELS = [
   { id: 'deepseek-r1', name: 'DeepSeek R1' },
-  { id: 'glm-4-6', name: 'GLM 4.6' },
-  { id: 'kimi-2', name: 'KIMI 2' },
-  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
-  { id: 'gemini-3.0-pro', name: 'Gemini 3.0 Pro' },
-  { id: 'claude-4-5-sonnet', name: 'Claude 4.5 Sonnet' },
-  { id: 'grok-4', name: 'Grok 4' },
-  { id: 'chatgpt-5', name: 'ChatGPT 5' }
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' }
 ];
 
 // Helper Function for File Import
@@ -539,13 +536,42 @@ const Admin: React.FC = () => {
       setTranscriptText('');
   };
 
-  const handleGenerateTranscript = () => { 
+  // UPDATED: Use Real AI for Transcript
+  const handleGenerateTranscript = async () => { 
+      if (!editingLesson.title) {
+          alert('请先输入课程标题以便AI生成内容');
+          return;
+      }
       setIsGeneratingTranscript(true); 
-      setTimeout(() => { 
-          setIsGeneratingTranscript(false); 
-          const sampleText = `0 | 大家好，欢迎来到本课程\n5 | 今天我们要讲的是核心人才留存\n12 | (讲师A): 首先我们要看这组数据...\n25 | (讲师B): 没错，数据的背后是职业发展的瓶颈\n45 | (讲师A): 那么我们如何通过管理手段来解决呢？\n60 | 接下来我们看一个案例...`; 
-          setTranscriptText(sampleText); 
-      }, 1500); 
+      try {
+          const chat = createChatSession(`Role: Professional Video Transcriber. 
+          Task: Generate a structured transcript for a Call Center Training Video.
+          Title: "${editingLesson.title}"
+          Category: "${editingLesson.category || 'General'}"
+          
+          Output Format strictly:
+          [Seconds] | [Content]
+          
+          Requirements:
+          1. Generate 5-8 lines representing key moments.
+          2. Time should increase.
+          3. Content should be educational and related to the title.
+          4. Language: Simplified Chinese.`);
+
+          if (chat) {
+              const result = await sendMessageToAI(chat, "Generate transcript now.");
+              // Clean up result if it contains markdown code blocks
+              const cleaned = result.replace(/```/g, '').replace(/markdown/g, '').trim();
+              setTranscriptText(cleaned);
+          } else {
+              setTranscriptText("Error: AI Service Unavailable. Check API Key.");
+          }
+      } catch (e) {
+          console.error(e);
+          setTranscriptText("Error generating transcript.");
+      } finally {
+          setIsGeneratingTranscript(false);
+      }
   };
 
   const handleEditLesson = (lesson: Lesson) => {
@@ -566,19 +592,13 @@ const Admin: React.FC = () => {
   const handleSaveAboutUs = () => { if(aboutUs) { saveAboutUsInfo(aboutUs); alert('已保存'); } };
   const handleDeleteUser = (id: string) => { if(window.confirm('确定删除?')) { deleteUser(id); setUsers(getAllUsers()); } };
   const handleSaveUser = () => { if(!editingUser.name || !editingUser.email) return alert('信息不全'); saveUser({...editingUser, id: editingUser.id || Date.now().toString(), role: editingUser.role || 'user', plan: editingUser.plan || 'free', isAuthenticated: true} as User); setUsers(getAllUsers()); setIsEditingUser(false); setEditingUser({}); };
-  
-  // Plans & Permission Logic
   const handleSavePlanConfig = () => { if(plansConfig) { savePlansPageConfig(plansConfig); alert('订阅配置已保存'); } };
   const handleAddPermission = () => { if(!newPermission.key || !newPermission.label) return alert('Key and Label required'); savePermissionDefinition({ ...newPermission }); setPermissions(getPermissionDefinitions()); setNewPermission({ key: '', label: '', module: '' }); };
   const handleDeletePermission = (key: string) => { if(window.confirm('确定删除?')) { deletePermissionDefinition(key); setPermissions(getPermissionDefinitions()); } };
-  const togglePermission = (plan: 'free' | 'pro', key: PermissionKey) => { const newConfig = { ...permConfig }; if(!newConfig[plan]) newConfig[plan] = {}; newConfig[plan][key] = !newConfig[plan][key]; setPermConfig(newConfig); savePermissionConfig(newConfig); };
-  
-  // Business Logic
+  const togglePermission = (plan: 'free' | 'pro', key: string) => { const newConfig = { ...permConfig }; if(!newConfig[plan]) newConfig[plan] = {}; newConfig[plan][key] = !newConfig[plan][key]; setPermConfig(newConfig); savePermissionConfig(newConfig); };
   const handleSaveBusinessConfig = () => { if(businessContact) { saveBusinessContactInfo(businessContact); alert('商务配置已保存'); } };
   const handleQRUpload = (e: React.ChangeEvent<HTMLInputElement>) => { if(e.target.files?.[0]) { const reader = new FileReader(); reader.onload = (ev) => { if(ev.target?.result) { savePaymentQRCode(ev.target.result as string); setPaymentQR(ev.target.result as string); } }; reader.readAsDataURL(e.target.files[0]); } };
   const handleDeleteLead = (id: string) => { if(window.confirm('Delete?')) { deleteBusinessLead(id); setBusinessLeads(getBusinessLeads()); } };
-
-  // Export Logic
   const handleBehaviorExport = () => {
     const selectedData = activities.filter(a => behaviorSelectedIds.has(a.id));
     if (selectedData.length === 0) return alert('请先选择要导出的记录');
@@ -602,8 +622,6 @@ const Admin: React.FC = () => {
     link.click();
     document.body.removeChild(link);
   };
-
-  // Bulk Selection Logic
   const toggleSelectAll = (checked: boolean) => {
       const filtered = activities.filter(a => 
           (behaviorFilterUser === 'all' || a.userId === behaviorFilterUser) &&
@@ -615,7 +633,6 @@ const Admin: React.FC = () => {
           setBehaviorSelectedIds(new Set());
       }
   };
-
   const toggleSelect = (id: string) => {
       const newSet = new Set(behaviorSelectedIds);
       if (newSet.has(id)) newSet.delete(id);
@@ -1130,6 +1147,284 @@ const Admin: React.FC = () => {
     </div>
   );
 
+  const renderSolutionTab = () => {
+      const filteredLessons = lessons.filter(l => l.title.toLowerCase().includes(lessonSearchQuery.toLowerCase()) || l.category?.toLowerCase().includes(lessonSearchQuery.toLowerCase()));
+
+      return (
+          <div className="space-y-6 animate-in fade-in">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                  <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                      <MonitorPlay size={24} className="text-blue-600" />
+                      视频课程库管理
+                  </h2>
+                  <button 
+                      onClick={() => { 
+                          setEditingLesson({}); 
+                          setLessonVideoSourceType('link'); 
+                          setLessonCoverSourceType('link');
+                          setTranscriptText('');
+                          setIsEditingLesson(true); 
+                      }} 
+                      className="bg-blue-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-blue-700 text-sm font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95 whitespace-nowrap"
+                  >
+                      <Plus size={18} /> 新增课程
+                  </button>
+              </div>
+
+              {/* ... (Search Bar) ... */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                  <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                          type="text" 
+                          placeholder="搜索课程标题或分类..." 
+                          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={lessonSearchQuery}
+                          onChange={(e) => setLessonSearchQuery(e.target.value)}
+                      />
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <span className="font-bold">{filteredLessons.length}</span> 个课程
+                  </div>
+              </div>
+
+              {/* ... (Table) ... */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                          <tr>
+                              <th className="p-4 pl-6 font-bold w-20">封面</th>
+                              <th className="p-4 font-bold">课程信息</th>
+                              <th className="p-4 font-bold">分类</th>
+                              <th className="p-4 font-bold">时长</th>
+                              <th className="p-4 font-bold">适用用户</th>
+                              <th className="p-4 font-bold text-right pr-6">操作</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                          {filteredLessons.map(lesson => (
+                              <tr key={lesson.id} className="hover:bg-blue-50/30 transition-colors group">
+                                  <td className="p-4 pl-6">
+                                      <div className="w-16 h-10 rounded-md overflow-hidden bg-slate-200 relative">
+                                          <img src={lesson.thumbnail} alt="" className="w-full h-full object-cover" />
+                                      </div>
+                                  </td>
+                                  <td className="p-4">
+                                      <div className="font-bold text-slate-800 line-clamp-1">{lesson.title}</div>
+                                      <div className="text-xs text-slate-400 mt-0.5">ID: {lesson.id}</div>
+                                  </td>
+                                  <td className="p-4">
+                                      <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded border border-slate-200">{lesson.category || '通用'}</span>
+                                  </td>
+                                  <td className="p-4 font-mono text-slate-600 text-xs">{lesson.duration}</td>
+                                  <td className="p-4">
+                                      <span className={`px-2 py-1 text-xs rounded font-bold border ${lesson.requiredPlan === 'pro' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                                          {lesson.requiredPlan === 'pro' ? 'PRO 会员' : '免费用户'}
+                                      </span>
+                                  </td>
+                                  <td className="p-4 pr-6 text-right">
+                                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button onClick={() => handleEditLesson(lesson)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="编辑">
+                                              <Edit size={16} />
+                                          </button>
+                                          <button onClick={() => handleDeleteLesson(lesson.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="删除">
+                                              <Trash2 size={16} />
+                                          </button>
+                                      </div>
+                                  </td>
+                              </tr>
+                          ))}
+                          {filteredLessons.length === 0 && (
+                              <tr><td colSpan={6} className="p-8 text-center text-slate-400">未找到课程</td></tr>
+                          )}
+                      </tbody>
+                  </table>
+              </div>
+
+              {isEditingLesson && (
+                  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
+                      <div className="bg-white rounded-xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl animate-in zoom-in-95 overflow-hidden">
+                          <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
+                              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                  {editingLesson.id ? <Edit size={20} className="text-blue-600" /> : <Plus size={20} className="text-blue-600" />}
+                                  {editingLesson.id ? '编辑视频课程' : '新增视频课程'}
+                              </h3>
+                              <button onClick={() => setIsEditingLesson(false)} className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                                  <X size={24} />
+                              </button>
+                          </div>
+
+                          <div className="flex-1 flex overflow-hidden bg-slate-50">
+                              <div className="w-5/12 p-6 overflow-y-auto border-r border-slate-200 bg-white">
+                                  {/* ... (Left Side Fields remain the same) ... */}
+                                  <div className="space-y-6">
+                                      
+                                      <div>
+                                          <label className="block text-sm font-bold text-slate-900 mb-2">课程标题</label>
+                                          <input 
+                                              className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                                              value={editingLesson.title || ''}
+                                              onChange={(e) => setEditingLesson({...editingLesson, title: e.target.value})}
+                                              placeholder="请输入课程名称"
+                                          />
+                                      </div>
+
+                                      <div className="grid grid-cols-2 gap-4">
+                                          <div>
+                                              <label className="block text-sm font-bold text-slate-900 mb-2">课程分类</label>
+                                              <input 
+                                                  list="categories"
+                                                  className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                  value={editingLesson.category || ''}
+                                                  onChange={(e) => setEditingLesson({...editingLesson, category: e.target.value})}
+                                                  placeholder="选择或输入分类"
+                                              />
+                                              <datalist id="categories">
+                                                  <option value="人员管理" />
+                                                  <option value="WFM管理" />
+                                                  <option value="质量与体验" />
+                                                  <option value="运营效率" />
+                                              </datalist>
+                                          </div>
+                                          <div>
+                                              <label className="block text-sm font-bold text-slate-900 mb-2">适用用户</label>
+                                              <select 
+                                                  className="w-full border border-slate-300 p-3 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                  value={editingLesson.requiredPlan || 'free'}
+                                                  onChange={(e) => setEditingLesson({...editingLesson, requiredPlan: e.target.value as 'free'|'pro'})}
+                                              >
+                                                  <option value="free">免费用户 (Free)</option>
+                                                  <option value="pro">专业版 (Pro Only)</option>
+                                              </select>
+                                          </div>
+                                      </div>
+
+                                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                          <label className="block text-sm font-bold text-slate-900 mb-3">视频源 (二选一)</label>
+                                          <div className="flex gap-6 mb-4">
+                                              <label className="flex items-center gap-2 cursor-pointer">
+                                                  <input type="radio" name="videoSourceType" checked={lessonVideoSourceType === 'link'} onChange={() => setLessonVideoSourceType('link')} className="text-blue-600" />
+                                                  <span className="text-sm font-medium">方式A: 外部链接</span>
+                                              </label>
+                                              <label className="flex items-center gap-2 cursor-pointer">
+                                                  <input type="radio" name="videoSourceType" checked={lessonVideoSourceType === 'upload'} onChange={() => setLessonVideoSourceType('upload')} className="text-blue-600" />
+                                                  <span className="text-sm font-medium">方式B: 本地上传</span>
+                                              </label>
+                                          </div>
+                                          
+                                          {lessonVideoSourceType === 'link' ? (
+                                              <input 
+                                                  className="w-full border border-slate-300 p-2.5 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                  value={editingLesson.videoUrl || ''}
+                                                  onChange={(e) => setEditingLesson({...editingLesson, videoUrl: e.target.value})}
+                                                  placeholder="输入 https://..."
+                                              />
+                                          ) : (
+                                              <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                                                  <div className="flex flex-col items-center pt-2 pb-3">
+                                                      <Upload className="w-6 h-6 text-slate-400 mb-1" />
+                                                      <p className="text-xs text-slate-500">点击上传视频文件 (MP4/WebM)</p>
+                                                  </div>
+                                                  <input type="file" className="hidden" accept="video/*" onChange={(e) => { if(e.target.files?.[0]) setEditingLesson({...editingLesson, videoUrl: URL.createObjectURL(e.target.files[0])}) }} />
+                                              </label>
+                                          )}
+                                          {editingLesson.videoUrl && <div className="mt-2 text-[10px] text-slate-400 truncate">当前源: {editingLesson.videoUrl}</div>}
+                                      </div>
+
+                                      <div>
+                                          <label className="block text-sm font-bold text-slate-900 mb-2">封面 (Cover)</label>
+                                          <div className="flex gap-4">
+                                              <div className="w-24 h-24 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                                  {editingLesson.thumbnail ? <img src={editingLesson.thumbnail} alt="Cover" className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-300" />}
+                                              </div>
+                                              <div className="flex-1 space-y-3">
+                                                  <input 
+                                                      className="w-full border border-slate-300 p-2.5 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                      value={editingLesson.thumbnail || ''}
+                                                      onChange={(e) => setEditingLesson({...editingLesson, thumbnail: e.target.value})}
+                                                      placeholder="封面图片 URL"
+                                                  />
+                                                  <label className="w-full py-2 border border-slate-300 rounded-lg bg-white text-sm font-bold text-slate-600 flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors">
+                                                      <Upload size={14} /> 上传
+                                                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleMediaImport(e, (url) => setEditingLesson({...editingLesson, thumbnail: url}))} />
+                                                  </label>
+                                              </div>
+                                          </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-2 gap-4">
+                                          <div>
+                                              <label className="block text-sm font-bold text-slate-900 mb-2">时长</label>
+                                              <input 
+                                                  className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                  value={editingLesson.duration || ''}
+                                                  onChange={(e) => setEditingLesson({...editingLesson, duration: e.target.value})}
+                                                  placeholder="例如: 08:45"
+                                              />
+                                          </div>
+                                      </div>
+
+                                  </div>
+                              </div>
+
+                              <div className="w-7/12 p-6 flex flex-col h-full bg-slate-50">
+                                  <div className="flex justify-between items-end mb-2">
+                                      <label className="text-sm font-bold text-slate-900">逐字稿 (支持时间戳)</label>
+                                      <div className="flex gap-2">
+                                          <div className="flex items-center bg-white border border-blue-200 rounded-lg p-1 pl-2 shadow-sm">
+                                              <select 
+                                                  className="text-xs font-medium text-slate-700 bg-transparent outline-none mr-2 w-24"
+                                                  value={selectedAIModel}
+                                                  onChange={(e) => setSelectedAIModel(e.target.value)}
+                                              >
+                                                  {VIDEO_AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                                              </select>
+                                              <button 
+                                                  onClick={handleGenerateTranscript}
+                                                  disabled={isGeneratingTranscript || !editingLesson.title}
+                                                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                              >
+                                                  {isGeneratingTranscript ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                                                  AI解析生成
+                                              </button>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  
+                                  <div className="flex-1 relative rounded-xl border border-slate-300 bg-white overflow-hidden shadow-inner flex flex-col">
+                                      <textarea 
+                                          className="flex-1 w-full h-full p-4 text-sm font-mono text-slate-600 bg-transparent outline-none resize-none leading-relaxed"
+                                          value={transcriptText}
+                                          onChange={(e) => setTranscriptText(e.target.value)}
+                                          placeholder={`0 | 大家好，欢迎来到本课程...\n5 | 今天我们要讲的是...\n(格式: 秒数 | 内容)`}
+                                      />
+                                      <div className="p-2 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+                                          <span className="text-[10px] text-slate-400">提示：每行一条，使用 "秒数 | 内容" 格式。AI 生成后可手动微调。</span>
+                                          <label className="text-xs font-bold text-blue-600 hover:underline cursor-pointer flex items-center gap-1">
+                                              <Import size={12} /> 导入文本
+                                              <input type="file" className="hidden" accept=".txt,.srt,.vtt" onChange={(e) => handleTranscriptImport(e, (text) => setTranscriptText(text))} />
+                                          </label>
+                                      </div>
+                                  </div>
+                              </div>
+
+                          </div>
+
+                          <div className="p-4 border-t border-slate-200 bg-white flex justify-end gap-3">
+                              <button onClick={() => setIsEditingLesson(false)} className="px-6 py-2.5 border border-slate-300 rounded-lg text-slate-700 font-bold hover:bg-slate-50 transition-colors">
+                                  取消
+                              </button>
+                              <button onClick={handleSaveLesson} className="px-8 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all active:scale-95">
+                                  保存项目
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              )}
+          </div>
+      );
+  };
+
   const renderUsersTab = () => {
     const handleEditPlansConfig = (plan: 'free' | 'pro', field: 'title' | 'subtitle' | 'buttonText', val: string) => {
        if(!plansConfig) return;
@@ -1554,281 +1849,6 @@ const Admin: React.FC = () => {
         {renderDetailModal()}
       </div>
     );
-  };
-
-  const renderSolutionTab = () => {
-      const filteredLessons = lessons.filter(l => l.title.toLowerCase().includes(lessonSearchQuery.toLowerCase()) || l.category?.toLowerCase().includes(lessonSearchQuery.toLowerCase()));
-
-      return (
-          <div className="space-y-6 animate-in fade-in">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                  <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                      <MonitorPlay size={24} className="text-blue-600" />
-                      视频课程库管理
-                  </h2>
-                  <button 
-                      onClick={() => { 
-                          setEditingLesson({}); 
-                          setLessonVideoSourceType('link'); 
-                          setLessonCoverSourceType('link');
-                          setTranscriptText('');
-                          setIsEditingLesson(true); 
-                      }} 
-                      className="bg-blue-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-blue-700 text-sm font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95 whitespace-nowrap"
-                  >
-                      <Plus size={18} /> 新增课程
-                  </button>
-              </div>
-
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                  <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input 
-                          type="text" 
-                          placeholder="搜索课程标题或分类..." 
-                          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                          value={lessonSearchQuery}
-                          onChange={(e) => setLessonSearchQuery(e.target.value)}
-                      />
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <span className="font-bold">{filteredLessons.length}</span> 个课程
-                  </div>
-              </div>
-
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
-                          <tr>
-                              <th className="p-4 pl-6 font-bold w-20">封面</th>
-                              <th className="p-4 font-bold">课程信息</th>
-                              <th className="p-4 font-bold">分类</th>
-                              <th className="p-4 font-bold">时长</th>
-                              <th className="p-4 font-bold">适用用户</th>
-                              <th className="p-4 font-bold text-right pr-6">操作</th>
-                          </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                          {filteredLessons.map(lesson => (
-                              <tr key={lesson.id} className="hover:bg-blue-50/30 transition-colors group">
-                                  <td className="p-4 pl-6">
-                                      <div className="w-16 h-10 rounded-md overflow-hidden bg-slate-200 relative">
-                                          <img src={lesson.thumbnail} alt="" className="w-full h-full object-cover" />
-                                      </div>
-                                  </td>
-                                  <td className="p-4">
-                                      <div className="font-bold text-slate-800 line-clamp-1">{lesson.title}</div>
-                                      <div className="text-xs text-slate-400 mt-0.5">ID: {lesson.id}</div>
-                                  </td>
-                                  <td className="p-4">
-                                      <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded border border-slate-200">{lesson.category || '通用'}</span>
-                                  </td>
-                                  <td className="p-4 font-mono text-slate-600 text-xs">{lesson.duration}</td>
-                                  <td className="p-4">
-                                      <span className={`px-2 py-1 text-xs rounded font-bold border ${lesson.requiredPlan === 'pro' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
-                                          {lesson.requiredPlan === 'pro' ? 'PRO 会员' : '免费用户'}
-                                      </span>
-                                  </td>
-                                  <td className="p-4 pr-6 text-right">
-                                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <button onClick={() => handleEditLesson(lesson)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="编辑">
-                                              <Edit size={16} />
-                                          </button>
-                                          <button onClick={() => handleDeleteLesson(lesson.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="删除">
-                                              <Trash2 size={16} />
-                                          </button>
-                                      </div>
-                                  </td>
-                              </tr>
-                          ))}
-                          {filteredLessons.length === 0 && (
-                              <tr><td colSpan={6} className="p-8 text-center text-slate-400">未找到课程</td></tr>
-                          )}
-                      </tbody>
-                  </table>
-              </div>
-
-              {isEditingLesson && (
-                  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
-                      <div className="bg-white rounded-xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl animate-in zoom-in-95 overflow-hidden">
-                          <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
-                              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                                  {editingLesson.id ? <Edit size={20} className="text-blue-600" /> : <Plus size={20} className="text-blue-600" />}
-                                  {editingLesson.id ? '编辑视频课程' : '新增视频课程'}
-                              </h3>
-                              <button onClick={() => setIsEditingLesson(false)} className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
-                                  <X size={24} />
-                              </button>
-                          </div>
-
-                          <div className="flex-1 flex overflow-hidden bg-slate-50">
-                              <div className="w-5/12 p-6 overflow-y-auto border-r border-slate-200 bg-white">
-                                  <div className="space-y-6">
-                                      
-                                      <div>
-                                          <label className="block text-sm font-bold text-slate-900 mb-2">课程标题</label>
-                                          <input 
-                                              className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
-                                              value={editingLesson.title || ''}
-                                              onChange={(e) => setEditingLesson({...editingLesson, title: e.target.value})}
-                                              placeholder="请输入课程名称"
-                                          />
-                                      </div>
-
-                                      <div className="grid grid-cols-2 gap-4">
-                                          <div>
-                                              <label className="block text-sm font-bold text-slate-900 mb-2">课程分类</label>
-                                              <input 
-                                                  list="categories"
-                                                  className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                                  value={editingLesson.category || ''}
-                                                  onChange={(e) => setEditingLesson({...editingLesson, category: e.target.value})}
-                                                  placeholder="选择或输入分类"
-                                              />
-                                              <datalist id="categories">
-                                                  <option value="人员管理" />
-                                                  <option value="WFM管理" />
-                                                  <option value="质量与体验" />
-                                                  <option value="运营效率" />
-                                              </datalist>
-                                          </div>
-                                          <div>
-                                              <label className="block text-sm font-bold text-slate-900 mb-2">适用用户</label>
-                                              <select 
-                                                  className="w-full border border-slate-300 p-3 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                                  value={editingLesson.requiredPlan || 'free'}
-                                                  onChange={(e) => setEditingLesson({...editingLesson, requiredPlan: e.target.value as 'free'|'pro'})}
-                                              >
-                                                  <option value="free">免费用户 (Free)</option>
-                                                  <option value="pro">专业版 (Pro Only)</option>
-                                              </select>
-                                          </div>
-                                      </div>
-
-                                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                          <label className="block text-sm font-bold text-slate-900 mb-3">视频源 (二选一)</label>
-                                          <div className="flex gap-6 mb-4">
-                                              <label className="flex items-center gap-2 cursor-pointer">
-                                                  <input type="radio" name="videoSourceType" checked={lessonVideoSourceType === 'link'} onChange={() => setLessonVideoSourceType('link')} className="text-blue-600" />
-                                                  <span className="text-sm font-medium">方式A: 外部链接</span>
-                                              </label>
-                                              <label className="flex items-center gap-2 cursor-pointer">
-                                                  <input type="radio" name="videoSourceType" checked={lessonVideoSourceType === 'upload'} onChange={() => setLessonVideoSourceType('upload')} className="text-blue-600" />
-                                                  <span className="text-sm font-medium">方式B: 本地上传</span>
-                                              </label>
-                                          </div>
-                                          
-                                          {lessonVideoSourceType === 'link' ? (
-                                              <input 
-                                                  className="w-full border border-slate-300 p-2.5 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                                  value={editingLesson.videoUrl || ''}
-                                                  onChange={(e) => setEditingLesson({...editingLesson, videoUrl: e.target.value})}
-                                                  placeholder="输入 https://..."
-                                              />
-                                          ) : (
-                                              <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
-                                                  <div className="flex flex-col items-center pt-2 pb-3">
-                                                      <Upload className="w-6 h-6 text-slate-400 mb-1" />
-                                                      <p className="text-xs text-slate-500">点击上传视频文件 (MP4/WebM)</p>
-                                                  </div>
-                                                  <input type="file" className="hidden" accept="video/*" onChange={(e) => { if(e.target.files?.[0]) setEditingLesson({...editingLesson, videoUrl: URL.createObjectURL(e.target.files[0])}) }} />
-                                              </label>
-                                          )}
-                                          {editingLesson.videoUrl && <div className="mt-2 text-[10px] text-slate-400 truncate">当前源: {editingLesson.videoUrl}</div>}
-                                      </div>
-
-                                      <div>
-                                          <label className="block text-sm font-bold text-slate-900 mb-2">封面 (Cover)</label>
-                                          <div className="flex gap-4">
-                                              <div className="w-24 h-24 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                                  {editingLesson.thumbnail ? <img src={editingLesson.thumbnail} alt="Cover" className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-300" />}
-                                              </div>
-                                              <div className="flex-1 space-y-3">
-                                                  <input 
-                                                      className="w-full border border-slate-300 p-2.5 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                                      value={editingLesson.thumbnail || ''}
-                                                      onChange={(e) => setEditingLesson({...editingLesson, thumbnail: e.target.value})}
-                                                      placeholder="封面图片 URL"
-                                                  />
-                                                  <label className="w-full py-2 border border-slate-300 rounded-lg bg-white text-sm font-bold text-slate-600 flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors">
-                                                      <Upload size={14} /> 上传
-                                                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleMediaImport(e, (url) => setEditingLesson({...editingLesson, thumbnail: url}))} />
-                                                  </label>
-                                              </div>
-                                          </div>
-                                      </div>
-
-                                      <div className="grid grid-cols-2 gap-4">
-                                          <div>
-                                              <label className="block text-sm font-bold text-slate-900 mb-2">时长</label>
-                                              <input 
-                                                  className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                                  value={editingLesson.duration || ''}
-                                                  onChange={(e) => setEditingLesson({...editingLesson, duration: e.target.value})}
-                                                  placeholder="例如: 08:45"
-                                              />
-                                          </div>
-                                      </div>
-
-                                  </div>
-                              </div>
-
-                              <div className="w-7/12 p-6 flex flex-col h-full bg-slate-50">
-                                  <div className="flex justify-between items-end mb-2">
-                                      <label className="text-sm font-bold text-slate-900">逐字稿 (支持时间戳)</label>
-                                      <div className="flex gap-2">
-                                          <div className="flex items-center bg-white border border-blue-200 rounded-lg p-1 pl-2 shadow-sm">
-                                              <select 
-                                                  className="text-xs font-medium text-slate-700 bg-transparent outline-none mr-2 w-24"
-                                                  value={selectedAIModel}
-                                                  onChange={(e) => setSelectedAIModel(e.target.value)}
-                                              >
-                                                  {VIDEO_AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                                              </select>
-                                              <button 
-                                                  onClick={handleGenerateTranscript}
-                                                  disabled={isGeneratingTranscript || !editingLesson.title}
-                                                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                              >
-                                                  {isGeneratingTranscript ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                                                  AI解析生成
-                                              </button>
-                                          </div>
-                                      </div>
-                                  </div>
-                                  
-                                  <div className="flex-1 relative rounded-xl border border-slate-300 bg-white overflow-hidden shadow-inner flex flex-col">
-                                      <textarea 
-                                          className="flex-1 w-full h-full p-4 text-sm font-mono text-slate-600 bg-transparent outline-none resize-none leading-relaxed"
-                                          value={transcriptText}
-                                          onChange={(e) => setTranscriptText(e.target.value)}
-                                          placeholder={`0 | 大家好，欢迎来到本课程...\n5 | 今天我们要讲的是...\n(格式: 秒数 | 内容)`}
-                                      />
-                                      <div className="p-2 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
-                                          <span className="text-[10px] text-slate-400">提示：每行一条，使用 "秒数 | 内容" 格式。AI 生成后可手动微调。</span>
-                                          <label className="text-xs font-bold text-blue-600 hover:underline cursor-pointer flex items-center gap-1">
-                                              <Import size={12} /> 导入文本
-                                              <input type="file" className="hidden" accept=".txt,.srt,.vtt" onChange={(e) => handleTranscriptImport(e, (text) => setTranscriptText(text))} />
-                                          </label>
-                                      </div>
-                                  </div>
-                              </div>
-
-                          </div>
-
-                          <div className="p-4 border-t border-slate-200 bg-white flex justify-end gap-3">
-                              <button onClick={() => setIsEditingLesson(false)} className="px-6 py-2.5 border border-slate-300 rounded-lg text-slate-700 font-bold hover:bg-slate-50 transition-colors">
-                                  取消
-                              </button>
-                              <button onClick={handleSaveLesson} className="px-8 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all active:scale-95">
-                                  保存项目
-                              </button>
-                          </div>
-                      </div>
-                  </div>
-              )}
-          </div>
-      );
   };
 
   const renderBehaviorTab = () => {

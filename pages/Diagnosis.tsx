@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AppRoute, KnowledgeCategory, UserUpload, User, KnowledgeItem, DiagnosisSubmission } from '../types';
@@ -364,6 +362,12 @@ const Diagnosis: React.FC = () => {
   const startLiveSession = async () => {
     const apiKey = process.env.API_KEY;
     if (!apiKey) { console.error("No API key found"); return; }
+    
+    if (apiKey.startsWith('sk-')) {
+        setAiInterviewQuestion("⚠️ 注意：当前使用的是 DeepSeek/OpenAI 兼容 Key。视频访谈（Live API）依赖 Google Gemini 模型，暂不支持此 Key。请切换到文本诊断。");
+        return;
+    }
+
     const ai = new GoogleGenAI({ apiKey });
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
     try {
@@ -390,7 +394,7 @@ const Diagnosis: React.FC = () => {
           onmessage: (msg: LiveServerMessage) => {
             if (msg.serverContent?.outputTranscription) {
                const text = msg.serverContent.outputTranscription.text;
-               if (text) setAiInterviewQuestion(prev => (prev.endsWith('？') || prev.endsWith('。') || prev.includes("请点击") || prev.includes("录制")) ? text : prev + text);
+               if (text) setAiInterviewQuestion(prev => (prev.endsWith('？') || prev.endsWith('。') || prev.includes("请点击") || prev.includes("录制") || prev.includes("注意")) ? text : prev + text);
             }
           },
           onclose: () => setIsLiveConnected(false),

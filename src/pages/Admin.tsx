@@ -1,18 +1,18 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Settings, BookOpen, Video, Database, Plus, Trash2, Edit, Save, X, Bot,
-  Upload, FileText, FileVideo, Image as ImageIcon, FileType, Loader2, CheckCircle,
-  LayoutDashboard, Target, PieChart, BarChart3, Users, ClipboardList, File as FileIcon, Download,
-  MonitorPlay, MessageSquare, BrainCircuit, Shield, ToggleLeft, ToggleRight, Sparkles, Quote, Link as LinkIcon, Tags, UserCog, Key, FileCheck, AlertTriangle, Activity, Zap, Import, ArrowUp, ArrowDown, Sigma, Divide, QrCode, Wallet, Building2, Globe, Mail, Clock, Crown, CreditCard, Phone, Smartphone, Lock, Layers, Briefcase, Calendar, Stethoscope, FileSpreadsheet, Presentation, FolderOpen, Check, Star, ArrowUpRight,
-  Square, CheckSquare, Filter, FileJson, Eye, List, BarChart2, Send, User as UserIcon, Search, MoreHorizontal, TrendingUp, PenTool, History
+  Upload, FileText, Image as ImageIcon, Loader2,
+  LayoutDashboard, PieChart, BarChart3, Users, ClipboardList, File as FileIcon, Download,
+  MonitorPlay, MessageSquare, Shield, ToggleLeft, ToggleRight, Sparkles, Quote, Link as LinkIcon, Tags, UserCog, Key, FileCheck, AlertTriangle, Activity, Zap, Import, ArrowUp, ArrowDown, Sigma, Divide, QrCode, Wallet, Building2, Globe, Mail, Clock, Crown, CreditCard, Phone, Smartphone, Lock, Briefcase, Stethoscope, FileSpreadsheet, Presentation, Check, Star, ArrowUpRight,
+  Square, CheckSquare, Filter, List, BarChart2, Send, User as UserIcon, Search, TrendingUp, PenTool
 } from 'lucide-react';
-import { BlogPost, Lesson, KnowledgeCategory, KnowledgeItem, DashboardProject, UserUpload, AdminNote, IntroVideo, DiagnosisIssue, PermissionConfig, PermissionDefinition, PermissionKey, TranscriptLine, User, KPIItem, KPIRecord, AboutUsInfo, EmailLog, RiskDetailItem, BusinessContactInfo, BusinessLead, DiagnosisSubmission, DiagnosisWidgetConfig, KnowledgeSectionType, WatchedLesson, ReadArticle, PlansPageConfig, PlanFeature } from '../types';
+import { BlogPost, Lesson, KnowledgeCategory, KnowledgeItem, DashboardProject, UserUpload, AdminNote, IntroVideo, DiagnosisIssue, PermissionConfig, PermissionDefinition, PermissionKey, TranscriptLine, User, KPIItem, KPIRecord, AboutUsInfo, EmailLog, BusinessContactInfo, BusinessLead, DiagnosisSubmission, DiagnosisWidgetConfig, KnowledgeSectionType, PlansPageConfig, PlanFeature } from '../types';
 import { getBlogPosts, saveBlogPost, deleteBlogPost, getIntroVideo, saveIntroVideo, getDiagnosisIssues, saveDiagnosisIssue, deleteDiagnosisIssue, getPaymentQRCode, savePaymentQRCode, getAboutUsInfo, saveAboutUsInfo, getBusinessContactInfo, saveBusinessContactInfo, getDiagnosisWidgetConfig, saveDiagnosisWidgetConfig, getPlansPageConfig, savePlansPageConfig } from '../services/contentService';
 import { getLessons, saveLesson, deleteLesson } from '../services/courseService';
 import { getKnowledgeCategories, saveKnowledgeCategory, deleteKnowledgeCategory } from '../services/resourceService';
 import { getDashboardProjects, saveDashboardProject, deleteDashboardProject } from '../services/dashboardService';
-import { getUserUploads, deleteUserUpload, getAdminNotes, updateAdminNote, deleteAdminNote, updateUserUploadStatus, getAllUsers, saveUser, deleteUser, getEmailLogs, getBusinessLeads, deleteBusinessLead, getDiagnosisSubmissions, deleteDiagnosisSubmission, updateBusinessLeadStatus, getWatchedHistory, getReadHistory } from '../services/userDataService';
+import { getUserUploads, deleteUserUpload, getAdminNotes, deleteAdminNote, getAllUsers, saveUser, deleteUser, getBusinessLeads, deleteBusinessLead, getDiagnosisSubmissions, deleteDiagnosisSubmission, updateBusinessLeadStatus, getWatchedHistory, getReadHistory } from '../services/userDataService';
 import { getPermissionConfig, savePermissionConfig, getPermissionDefinitions, savePermissionDefinition, deletePermissionDefinition } from '../services/permissionService';
 
 // Specific AI Models for Video Transcript Generation
@@ -192,7 +192,6 @@ const KPIEditor: React.FC<{ kpis: KPIItem[], onChange: (kpis: KPIItem[]) => void
                       
                       {activeIndex === idx && (
                           <div className="p-4 border-t border-slate-100 space-y-4 bg-slate-50/30 animate-in slide-in-from-top-1">
-                              {/* Basic Info */}
                               <div className="space-y-3">
                                   <div>
                                       <label className="block text-xs font-bold text-slate-500 mb-1">指标名称</label>
@@ -210,7 +209,6 @@ const KPIEditor: React.FC<{ kpis: KPIItem[], onChange: (kpis: KPIItem[]) => void
                                   </div>
                               </div>
 
-                              {/* Config */}
                               <div className="grid grid-cols-3 gap-3 bg-slate-100 p-3 rounded-lg border border-slate-200">
                                   <div>
                                       <label className="block text-[10px] font-bold text-slate-500 mb-1">时间维度</label>
@@ -240,7 +238,6 @@ const KPIEditor: React.FC<{ kpis: KPIItem[], onChange: (kpis: KPIItem[]) => void
                                   </div>
                               </div>
 
-                              {/* Data Entry */}
                               <div className="border-t border-slate-200 pt-3">
                                   <div className="flex justify-between items-center mb-2">
                                       <h5 className="text-xs font-bold text-slate-700">历史数据录入 ({kpi.chartData?.length || 0} 条)</h5>
@@ -259,7 +256,6 @@ const KPIEditor: React.FC<{ kpis: KPIItem[], onChange: (kpis: KPIItem[]) => void
                                       <button onClick={() => handleAddDataPoint(idx)} className="px-4 bg-blue-500 text-white rounded text-sm font-bold hover:bg-blue-600">添加</button>
                                   </div>
                                   
-                                  {/* Data Table */}
                                   <div className="max-h-32 overflow-y-auto border border-slate-200 rounded bg-white">
                                       <table className="w-full text-xs text-left">
                                           <thead className="bg-slate-50 text-slate-500 sticky top-0">
@@ -292,11 +288,9 @@ const KPIEditor: React.FC<{ kpis: KPIItem[], onChange: (kpis: KPIItem[]) => void
   );
 };
 
-// --- Main Admin Component ---
 const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'blog' | 'diagnosis' | 'solution' | 'dashboard' | 'users' | 'resource' | 'behavior'>('blog');
   
-  // Blog Data
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [introVideo, setIntroVideo] = useState<IntroVideo | null>(null);
   const [isEditingPost, setIsEditingPost] = useState(false);
@@ -305,14 +299,12 @@ const Admin: React.FC = () => {
   const [businessContact, setBusinessContact] = useState<BusinessContactInfo | null>(null);
   const [paymentQR, setPaymentQR] = useState('');
   
-  // Diagnosis Data
   const [diagnosisIssues, setDiagnosisIssues] = useState<DiagnosisIssue[]>([]);
   const [diagnosisWidgetConfig, setDiagnosisWidgetConfig] = useState<DiagnosisWidgetConfig>({title: '', description: ''});
   const [editingIssue, setEditingIssue] = useState<Partial<DiagnosisIssue>>({});
   const [isEditingIssue, setIsEditingIssue] = useState(false);
   const [diagnosisSubmissions, setDiagnosisSubmissions] = useState<DiagnosisSubmission[]>([]);
 
-  // Solution Data
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isEditingLesson, setIsEditingLesson] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Partial<Lesson>>({});
@@ -323,18 +315,15 @@ const Admin: React.FC = () => {
   const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
   const [lessonSearchQuery, setLessonSearchQuery] = useState('');
 
-  // Dashboard Data
   const [projects, setProjects] = useState<DashboardProject[]>([]);
   const [isEditingProject, setIsEditingProject] = useState(false);
   const [editingProject, setEditingProject] = useState<Partial<DashboardProject>>({});
 
-  // Resource Data
   const [knowledgeCategories, setKnowledgeCategories] = useState<KnowledgeCategory[]>([]);
   const [editingCategory, setEditingCategory] = useState<Partial<KnowledgeCategory>>({});
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [activeResourceSection, setActiveResourceSection] = useState<KnowledgeSectionType>('ai_reply');
 
-  // User & Permission Data
   const [users, setUsers] = useState<User[]>([]);
   const [editingUser, setEditingUser] = useState<Partial<User>>({});
   const [isEditingUser, setIsEditingUser] = useState(false);
@@ -342,19 +331,16 @@ const Admin: React.FC = () => {
   const [userSubTab, setUserSubTab] = useState<'list' | 'plans' | 'permissions' | 'business'>('list');
   const [selectedUserForDetail, setSelectedUserForDetail] = useState<string | null>(null);
   const [plansConfig, setPlansConfig] = useState<PlansPageConfig | null>(null);
-  const [isEditingPlan, setIsEditingPlan] = useState(false);
   
-  // Permission Data
   const [permissions, setPermissions] = useState<PermissionDefinition[]>([]);
   const [permConfig, setPermConfig] = useState<PermissionConfig>({ free: {}, pro: {} });
   const [newPermission, setNewPermission] = useState({ key: '', label: '', module: '' });
 
-  // Behavior Module State
   const [behaviorTab, setBehaviorTab] = useState<'overview' | 'activity' | 'notes'>('overview');
   const [behaviorFilterUser, setBehaviorFilterUser] = useState<string>('all');
   const [behaviorFilterType, setBehaviorFilterType] = useState<string>('all');
   const [behaviorSelectedIds, setBehaviorSelectedIds] = useState<Set<string>>(new Set());
-  const [activities, setActivities] = useState<any[]>([]); // Consolidated Activity Log
+  const [activities, setActivities] = useState<any[]>([]); 
   const [stats, setStats] = useState({ totalInteractions: 0, notesCount: 0, videoCount: 0, activeUsers: 0 });
   const [popularContent, setPopularContent] = useState<any[]>([]);
 
@@ -377,7 +363,6 @@ const Admin: React.FC = () => {
     setPlansConfig(getPlansPageConfig());
   }, []);
 
-  // --- Consolidated Data Loading for Behavior Tab ---
   useEffect(() => {
     const allUsers = getAllUsers();
     const watched = getWatchedHistory();
@@ -390,7 +375,6 @@ const Admin: React.FC = () => {
 
     let combined: any[] = [];
 
-    // Map Videos
     watched.forEach(w => {
         const lesson = lessonData.find(l => l.id === w.lessonId);
         const user = allUsers.find(u => u.id === w.userId);
@@ -408,7 +392,6 @@ const Admin: React.FC = () => {
         });
     });
 
-    // Map Articles
     read.forEach(r => {
         const post = postData.find(p => p.id === r.articleId);
         const user = allUsers.find(u => u.id === r.userId);
@@ -426,7 +409,6 @@ const Admin: React.FC = () => {
         });
     });
 
-    // Map Notes
     notes.forEach(n => {
         combined.push({
             id: `n-${n.id}`,
@@ -442,7 +424,6 @@ const Admin: React.FC = () => {
         });
     });
 
-    // Map Uploads
     uploads.forEach(u => {
         combined.push({
             id: `u-${u.id}`,
@@ -458,7 +439,6 @@ const Admin: React.FC = () => {
         });
     });
 
-    // Map Diagnosis
     diagnosis.forEach(d => {
         combined.push({
             id: `d-${d.id}`,
@@ -474,11 +454,9 @@ const Admin: React.FC = () => {
         });
     });
 
-    // Sort and Set
     combined.sort((a, b) => b.timestamp - a.timestamp);
     setActivities(combined);
 
-    // Calculate Stats
     const uniqueUsers = new Set(combined.map(a => a.userId)).size;
     setStats({
         totalInteractions: combined.length,
@@ -487,7 +465,6 @@ const Admin: React.FC = () => {
         activeUsers: uniqueUsers
     });
 
-    // Calculate Popular Content
     const contentCounts: Record<string, {title: string, type: string, count: number}> = {};
     combined.forEach(a => {
         if (a.type === 'video' || a.type === 'article') {
@@ -500,7 +477,7 @@ const Admin: React.FC = () => {
     });
     setPopularContent(Object.values(contentCounts).sort((a, b) => b.count - a.count).slice(0, 5));
 
-  }, [behaviorTab]); // Refresh when entering tab
+  }, [behaviorTab]);
 
   const handleDeleteKnowledgeCategory = (id: string) => { if (window.confirm('确定要删除此分类及其所有内容吗？')) { deleteKnowledgeCategory(id); setKnowledgeCategories(getKnowledgeCategories()); } };
   const handleSaveCategory = () => { if (!editingCategory.name) return alert('分类名称不能为空'); const newCategory = { ...editingCategory, id: editingCategory.id || Date.now().toString(), items: editingCategory.items || [], section: activeResourceSection } as KnowledgeCategory; saveKnowledgeCategory(newCategory); setKnowledgeCategories(getKnowledgeCategories()); setIsEditingCategory(false); setEditingCategory({}); };
@@ -568,18 +545,15 @@ const Admin: React.FC = () => {
   const handleDeleteUser = (id: string) => { if(window.confirm('确定删除?')) { deleteUser(id); setUsers(getAllUsers()); } };
   const handleSaveUser = () => { if(!editingUser.name || !editingUser.email) return alert('信息不全'); saveUser({...editingUser, id: editingUser.id || Date.now().toString(), role: editingUser.role || 'user', plan: editingUser.plan || 'free', isAuthenticated: true} as User); setUsers(getAllUsers()); setIsEditingUser(false); setEditingUser({}); };
   
-  // Plans & Permission Logic
   const handleSavePlanConfig = () => { if(plansConfig) { savePlansPageConfig(plansConfig); alert('订阅配置已保存'); } };
   const handleAddPermission = () => { if(!newPermission.key || !newPermission.label) return alert('Key and Label required'); savePermissionDefinition({ ...newPermission }); setPermissions(getPermissionDefinitions()); setNewPermission({ key: '', label: '', module: '' }); };
   const handleDeletePermission = (key: string) => { if(window.confirm('确定删除?')) { deletePermissionDefinition(key); setPermissions(getPermissionDefinitions()); } };
   const togglePermission = (plan: 'free' | 'pro', key: PermissionKey) => { const newConfig = { ...permConfig }; if(!newConfig[plan]) newConfig[plan] = {}; newConfig[plan][key] = !newConfig[plan][key]; setPermConfig(newConfig); savePermissionConfig(newConfig); };
   
-  // Business Logic
   const handleSaveBusinessConfig = () => { if(businessContact) { saveBusinessContactInfo(businessContact); alert('商务配置已保存'); } };
   const handleQRUpload = (e: React.ChangeEvent<HTMLInputElement>) => { if(e.target.files?.[0]) { const reader = new FileReader(); reader.onload = (ev) => { if(ev.target?.result) { savePaymentQRCode(ev.target.result as string); setPaymentQR(ev.target.result as string); } }; reader.readAsDataURL(e.target.files[0]); } };
   const handleDeleteLead = (id: string) => { if(window.confirm('Delete?')) { deleteBusinessLead(id); setBusinessLeads(getBusinessLeads()); } };
 
-  // Export Logic
   const handleBehaviorExport = () => {
     const selectedData = activities.filter(a => behaviorSelectedIds.has(a.id));
     if (selectedData.length === 0) return alert('请先选择要导出的记录');
@@ -604,7 +578,6 @@ const Admin: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Bulk Selection Logic
   const toggleSelectAll = (checked: boolean) => {
       const filtered = activities.filter(a => 
           (behaviorFilterUser === 'all' || a.userId === behaviorFilterUser) &&
@@ -733,11 +706,8 @@ const Admin: React.FC = () => {
     );
   };
 
-  // ... (Other render functions: renderBlogTab, renderDiagnosisTab, etc. are assumed to be the same as previously generated but I will include them for completeness if the file is fully replaced)
-
   const renderBlogTab = () => (
     <div className="space-y-8 animate-in fade-in">
-      {/* Intro Video Section */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Video size={20} /> 首页视频配置</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -772,7 +742,6 @@ const Admin: React.FC = () => {
         </div>
       </div>
 
-      {/* Blog Posts List */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
             <h3 className="font-bold text-slate-800 flex items-center gap-2"><BookOpen size={20} /> 文章列表</h3>
@@ -804,7 +773,6 @@ const Admin: React.FC = () => {
         </table>
       </div>
 
-      {/* About Us Config */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Building2 size={20} /> 关于我们 / 页脚配置</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -819,7 +787,6 @@ const Admin: React.FC = () => {
           </div>
       </div>
 
-      {/* Blog Edit Modal */}
       {isEditingPost && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-xl w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95">
@@ -864,7 +831,6 @@ const Admin: React.FC = () => {
 
   const renderDiagnosisTab = () => (
     <div className="space-y-8 animate-in fade-in">
-        {/* Widget Configuration */}
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Settings size={20} /> 博客页诊断组件配置</h3>
             <div className="space-y-4">
@@ -875,7 +841,6 @@ const Admin: React.FC = () => {
             </div>
         </div>
 
-        {/* Issues Management */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                 <h3 className="font-bold text-slate-800 flex items-center gap-2"><Stethoscope size={20} /> 诊断问题预设</h3>
@@ -906,7 +871,6 @@ const Admin: React.FC = () => {
             </table>
         </div>
 
-        {/* Submissions Log */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-200 bg-slate-50">
                 <h3 className="font-bold text-slate-800 flex items-center gap-2"><ClipboardList size={20} /> 用户提交记录</h3>
@@ -940,7 +904,6 @@ const Admin: React.FC = () => {
             </div>
         </div>
 
-        {/* Edit Modal */}
         {isEditingIssue && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-xl w-full max-w-lg p-6 animate-in zoom-in-95 relative">
@@ -967,14 +930,12 @@ const Admin: React.FC = () => {
             <button onClick={() => { setEditingCategory({}); setIsEditingCategory(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center gap-2"><Plus size={16} /> 新增分类</button>
         </div>
 
-        {/* Section Tabs */}
         <div className="flex gap-4 border-b border-slate-200 mb-6">
             <button onClick={() => setActiveResourceSection('ai_reply')} className={`pb-2 px-4 font-bold text-sm border-b-2 transition-colors ${activeResourceSection === 'ai_reply' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>AI 知识库 (RAG)</button>
             <button onClick={() => setActiveResourceSection('diagnosis_tools')} className={`pb-2 px-4 font-bold text-sm border-b-2 transition-colors ${activeResourceSection === 'diagnosis_tools' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>诊断工具箱</button>
             <button onClick={() => setActiveResourceSection('project_reports')} className={`pb-2 px-4 font-bold text-sm border-b-2 transition-colors ${activeResourceSection === 'project_reports' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>项目报告归档</button>
         </div>
 
-        {/* Categories List */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {knowledgeCategories.filter(c => c.section === activeResourceSection).map(category => (
                 <div key={category.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 relative group">
@@ -1007,7 +968,6 @@ const Admin: React.FC = () => {
             )}
         </div>
 
-        {/* Category Edit Modal */}
         {isEditingCategory && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-xl w-full max-w-2xl flex flex-col shadow-2xl animate-in zoom-in-95 max-h-[90vh]">
@@ -1092,13 +1052,11 @@ const Admin: React.FC = () => {
         setPlansConfig(newConfig);
     };
 
-    // Detail Modal Content Render
     const renderDetailModal = () => {
         if (!selectedUserForDetail) return null;
         const targetUser = users.find(u => u.id === selectedUserForDetail);
         if (!targetUser) return null;
 
-        // Get user-specific data
         const userWatched = getWatchedHistory().filter(h => h.userId === targetUser.id);
         const userRead = getReadHistory().filter(h => h.userId === targetUser.id);
         const userNotes = getAdminNotes().filter(n => n.userId === targetUser.id);
@@ -1108,7 +1066,6 @@ const Admin: React.FC = () => {
         return (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-in fade-in">
                <div className="bg-white rounded-2xl w-full max-w-5xl h-[85vh] flex overflow-hidden shadow-2xl animate-in zoom-in-95">
-                  {/* Left Sidebar: Profile */}
                   <div className="w-80 bg-slate-50 border-r border-slate-200 p-6 flex flex-col">
                       <div className="flex items-center gap-4 mb-6">
                           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-2xl font-bold">
@@ -1133,11 +1090,8 @@ const Admin: React.FC = () => {
                       </div>
                   </div>
 
-                  {/* Right Content: Tabs */}
                   <div className="flex-1 flex flex-col bg-white overflow-hidden">
                       <div className="overflow-y-auto p-8 space-y-8">
-                          
-                          {/* Video History */}
                           <div>
                               <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2"><Video size={18} /> 视频观看历史 ({userWatched.length})</h3>
                               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
@@ -1160,7 +1114,6 @@ const Admin: React.FC = () => {
                               </div>
                           </div>
 
-                          {/* Article History */}
                           <div>
                               <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2"><BookOpen size={18} /> 文章阅读历史 ({userRead.length})</h3>
                               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
@@ -1178,7 +1131,6 @@ const Admin: React.FC = () => {
                               </div>
                           </div>
 
-                          {/* Other Activities */}
                           <div className="grid grid-cols-2 gap-6">
                               <div>
                                   <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2"><PenTool size={18} /> 学习笔记 ({userNotes.length})</h3>
@@ -1221,7 +1173,6 @@ const Admin: React.FC = () => {
 
     return (
       <div className="space-y-6 animate-in fade-in">
-        {/* Sub Navigation */}
         <div className="flex gap-6 mb-6 border-b border-slate-200">
           <button onClick={() => setUserSubTab('list')} className={`px-2 py-3 border-b-2 text-sm font-bold transition-colors flex items-center gap-2 ${userSubTab === 'list' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
              <UserIcon size={16} /> 用户列表
@@ -1237,7 +1188,6 @@ const Admin: React.FC = () => {
           </button>
         </div>
 
-        {/* 1. User List Tab */}
         {userSubTab === 'list' && (
             <>
                 <div className="flex justify-between items-center mb-4">
@@ -1277,7 +1227,6 @@ const Admin: React.FC = () => {
             </>
         )}
 
-        {/* 2. Subscription Plans Config Tab */}
         {userSubTab === 'plans' && plansConfig && (
             <div className="space-y-6">
                 <div className="flex justify-between items-center">
@@ -1285,7 +1234,6 @@ const Admin: React.FC = () => {
                     <button onClick={handleSavePlanConfig} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center gap-2"><Save size={16} /> 保存配置</button>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Free Plan Editor */}
                     <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
                         <div className="flex items-center gap-2 mb-4 text-slate-500 font-bold uppercase text-xs tracking-wider"><div className="w-2 h-2 rounded-full bg-slate-400"></div> 免费版 (Free)</div>
                         <div className="space-y-4">
@@ -1311,7 +1259,6 @@ const Admin: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Pro Plan Editor */}
                     <div className="bg-blue-50/50 border border-blue-200 rounded-xl p-6 shadow-sm relative overflow-hidden">
                         <div className="flex items-center gap-2 mb-4 text-blue-600 font-bold uppercase text-xs tracking-wider"><div className="w-2 h-2 rounded-full bg-blue-600"></div> 专业版 (PRO)</div>
                         <div className="space-y-4 relative z-10">
@@ -1340,13 +1287,11 @@ const Admin: React.FC = () => {
             </div>
         )}
 
-        {/* 3. Permissions Config Tab */}
         {userSubTab === 'permissions' && (
             <div className="space-y-6">
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><Lock size={20} /> 权限模块配置</h3>
                     
-                    {/* Add New Permission Form */}
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-8">
                         <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">新增权限定义</label>
                         <div className="flex gap-4 items-end">
@@ -1357,7 +1302,6 @@ const Admin: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Permission Matrix Table */}
                     <div className="overflow-hidden rounded-lg border border-slate-200">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50 text-slate-500 font-bold">
@@ -1394,10 +1338,8 @@ const Admin: React.FC = () => {
             </div>
         )}
 
-        {/* 4. Business CRM Tab */}
         {userSubTab === 'business' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Left: Contact Config */}
                 <div className="space-y-8">
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                         <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><Smartphone size={20} /> 商务联系人配置</h3>
@@ -1434,7 +1376,6 @@ const Admin: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Right: Leads Table */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
                     <div className="p-6 border-b border-slate-100 bg-slate-50/50">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2"><Briefcase size={20} /> 销售线索 (Leads)</h3>
@@ -1485,7 +1426,6 @@ const Admin: React.FC = () => {
             </div>
         )}
 
-        {/* User Edit Modal */}
         {isEditingUser && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl w-full max-w-md p-6 animate-in zoom-in-95 relative">
@@ -1504,7 +1444,6 @@ const Admin: React.FC = () => {
           </div>
         )}
 
-        {/* User Detail Modal */}
         {renderDetailModal()}
       </div>
     );
@@ -1534,7 +1473,6 @@ const Admin: React.FC = () => {
                   </button>
               </div>
 
-              {/* Search & Filter Bar */}
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
                   <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -1551,7 +1489,6 @@ const Admin: React.FC = () => {
                   </div>
               </div>
 
-              {/* Lesson List */}
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                   <table className="w-full text-left text-sm">
                       <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
@@ -1604,11 +1541,9 @@ const Admin: React.FC = () => {
                   </table>
               </div>
 
-              {/* Edit/Add Lesson Modal */}
               {isEditingLesson && (
                   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
                       <div className="bg-white rounded-xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl animate-in zoom-in-95 overflow-hidden">
-                          {/* Header */}
                           <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
                               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                                   {editingLesson.id ? <Edit size={20} className="text-blue-600" /> : <Plus size={20} className="text-blue-600" />}
@@ -1620,8 +1555,6 @@ const Admin: React.FC = () => {
                           </div>
 
                           <div className="flex-1 flex overflow-hidden bg-slate-50">
-                              
-                              {/* Left Column: Basic Info & Source */}
                               <div className="w-5/12 p-6 overflow-y-auto border-r border-slate-200 bg-white">
                                   <div className="space-y-6">
                                       
@@ -1665,7 +1598,6 @@ const Admin: React.FC = () => {
                                           </div>
                                       </div>
 
-                                      {/* Video Source */}
                                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                                           <label className="block text-sm font-bold text-slate-900 mb-3">视频源 (二选一)</label>
                                           <div className="flex gap-6 mb-4">
@@ -1698,7 +1630,6 @@ const Admin: React.FC = () => {
                                           {editingLesson.videoUrl && <div className="mt-2 text-[10px] text-slate-400 truncate">当前源: {editingLesson.videoUrl}</div>}
                                       </div>
 
-                                      {/* Cover Image */}
                                       <div>
                                           <label className="block text-sm font-bold text-slate-900 mb-2">封面 (Cover)</label>
                                           <div className="flex gap-4">
@@ -1735,7 +1666,6 @@ const Admin: React.FC = () => {
                                   </div>
                               </div>
 
-                              {/* Right Column: Transcript & AI */}
                               <div className="w-7/12 p-6 flex flex-col h-full bg-slate-50">
                                   <div className="flex justify-between items-end mb-2">
                                       <label className="text-sm font-bold text-slate-900">逐字稿 (支持时间戳)</label>
@@ -1779,7 +1709,6 @@ const Admin: React.FC = () => {
 
                           </div>
 
-                          {/* Footer */}
                           <div className="p-4 border-t border-slate-200 bg-white flex justify-end gap-3">
                               <button onClick={() => setIsEditingLesson(false)} className="px-6 py-2.5 border border-slate-300 rounded-lg text-slate-700 font-bold hover:bg-slate-50 transition-colors">
                                   取消
@@ -1795,7 +1724,6 @@ const Admin: React.FC = () => {
       );
   };
 
-  // --- Behavior Tab Render Logic (Redesigned) ---
   const renderBehaviorTab = () => {
     const filteredActivities = activities.filter(a => 
       (behaviorFilterUser === 'all' || a.userId === behaviorFilterUser) &&
@@ -1804,7 +1732,6 @@ const Admin: React.FC = () => {
 
     return (
       <div className="space-y-6 animate-in fade-in">
-        {/* Top Navigation */}
         <div className="flex gap-6 mb-6 border-b border-slate-200">
           <button onClick={() => setBehaviorTab('overview')} className={`px-2 py-3 border-b-2 text-sm font-bold transition-colors flex items-center gap-2 ${behaviorTab === 'overview' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
              <Activity size={16} /> 概览与统计
@@ -1817,10 +1744,8 @@ const Admin: React.FC = () => {
           </button>
         </div>
         
-        {/* 1. Overview Tab */}
         {behaviorTab === 'overview' && (
           <div className="space-y-8">
-            {/* Stat Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between h-32">
                  <div className="text-xs font-bold text-slate-500 uppercase">总互动次数</div>
@@ -1841,7 +1766,6 @@ const Admin: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Ranking */}
                 <div className="lg:col-span-1 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                     <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><TrendingUp size={18} /> 热门内容排名</h3>
                     <div className="space-y-4">
@@ -1863,13 +1787,11 @@ const Admin: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Recent Activity List */}
                 <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                     <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><BarChart2 size={18} /> 最近活跃动态</h3>
                     <div className="space-y-6">
                         {activities.slice(0, 6).map(activity => (
                             <div key={activity.id} className="flex items-start gap-4 relative pl-4">
-                                {/* Timeline Line */}
                                 <div className="absolute left-0 top-2 bottom-[-24px] w-px bg-slate-100 last:hidden"></div>
                                 
                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0 z-10 ${
@@ -1904,10 +1826,8 @@ const Admin: React.FC = () => {
           </div>
         )}
         
-        {/* 2. Activity Log Tab (Table View) */}
         {behaviorTab === 'activity' && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-             {/* Toolbar */}
              <div className="p-4 border-b border-slate-200 flex flex-wrap gap-4 items-center bg-slate-50/50">
                 <div className="flex items-center gap-2">
                     <Filter size={16} className="text-slate-400" />
@@ -1935,7 +1855,6 @@ const Admin: React.FC = () => {
                 </div>
              </div>
 
-             {/* Table */}
              <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
@@ -1989,7 +1908,6 @@ const Admin: React.FC = () => {
           </div>
         )}
 
-        {/* 3. Notes Management Tab */}
         {behaviorTab === 'notes' && (
            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
               <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">

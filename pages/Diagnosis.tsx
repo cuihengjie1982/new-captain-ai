@@ -138,6 +138,7 @@ const Diagnosis: React.FC = () => {
   
   // Interview Mode State
   const [isRecording, setIsRecording] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
   const [aiInterviewQuestion, setAiInterviewQuestion] = useState("你好！我是 AI 面试官。请点击左侧红色按钮开始录制，我会通过实时语音与您互动，深入了解您的需求。");
   const [isLiveConnected, setIsLiveConnected] = useState(false);
   const [videoAspectRatio, setVideoAspectRatio] = useState<string>('16/9'); // New Aspect Ratio State
@@ -159,6 +160,15 @@ const Diagnosis: React.FC = () => {
      setKnowledgeCategories(getKnowledgeCategories());
      const storedUser = localStorage.getItem('captainUser');
      if (storedUser) setCurrentUser(JSON.parse(storedUser));
+     
+     // Safety cleanup on mount - ensure camera is stopped
+     stopCamera();
+     stopLiveSession();
+     
+     return () => {
+         stopCamera();
+         stopLiveSession();
+     };
   }, []);
 
   const scrollToBottom = () => {
@@ -242,6 +252,7 @@ const Diagnosis: React.FC = () => {
           audio: true 
       });
       streamRef.current = stream;
+      setIsCameraActive(true);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
@@ -262,6 +273,7 @@ const Diagnosis: React.FC = () => {
     if (videoRef.current) {
         videoRef.current.srcObject = null;
     }
+    setIsCameraActive(false);
   };
 
   // --- Gemini Live Integration ---
@@ -363,6 +375,7 @@ const Diagnosis: React.FC = () => {
       setIsRecording(false);
       setAiInterviewQuestion("访谈已结束。您可以下载视频或点击红色按钮重新开始。");
     } else {
+      // Only start camera when explicitly asked
       const success = await startCamera();
       if (!success) return;
       
@@ -801,13 +814,13 @@ const Diagnosis: React.FC = () => {
                        <video 
                           ref={videoRef} 
                           className="w-full h-full object-cover transform scale-x-[-1]" 
-                          autoPlay 
+                          autoPlay={isCameraActive} 
                           muted 
                           playsInline 
                        />
                        
                        {/* Start Prompt Overlay */}
-                       {!isRecording && !streamRef.current && (
+                       {!isRecording && !isCameraActive && !streamRef.current && (
                            <div className="absolute inset-0 bg-slate-900/80 flex flex-col items-center justify-center text-center z-10 p-6">
                                <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-4">
                                    <Camera size={32} className="text-white/50" />
@@ -920,7 +933,7 @@ const Diagnosis: React.FC = () => {
                            {downloadedFiles.map((f, i) => (
                                <span key={i} className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full border border-green-100 flex items-center gap-1">
                                    <CheckCircle size={10} /> {f}
-                               </span>
+                                </span>
                            ))}
                        </div>
                    )}

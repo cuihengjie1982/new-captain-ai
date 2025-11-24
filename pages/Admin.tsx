@@ -1031,6 +1031,1039 @@ const Admin: React.FC = () => {
     </div>
   );
 
+  const renderResourceTab = () => (
+    <div className="space-y-6 animate-in fade-in">
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-slate-800">知识库资源管理</h2>
+            <button onClick={() => { setEditingCategory({}); setIsEditingCategory(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center gap-2"><Plus size={16} /> 新增分类</button>
+        </div>
+
+        <div className="flex gap-4 border-b border-slate-200 mb-6">
+            <button onClick={() => setActiveResourceSection('ai_reply')} className={`pb-2 px-4 font-bold text-sm border-b-2 transition-colors ${activeResourceSection === 'ai_reply' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>AI 知识库 (RAG)</button>
+            <button onClick={() => setActiveResourceSection('diagnosis_tools')} className={`pb-2 px-4 font-bold text-sm border-b-2 transition-colors ${activeResourceSection === 'diagnosis_tools' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>诊断工具箱</button>
+            <button onClick={() => setActiveResourceSection('project_reports')} className={`pb-2 px-4 font-bold text-sm border-b-2 transition-colors ${activeResourceSection === 'project_reports' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>项目报告归档</button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {knowledgeCategories.filter(c => c.section === activeResourceSection).map(category => (
+                <div key={category.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 relative group">
+                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setEditingCategory(category); setIsEditingCategory(true); }} className="text-blue-600 hover:bg-blue-50 p-1 rounded"><Edit size={16} /></button>
+                        <button onClick={() => handleDeleteKnowledgeCategory(category.id)} className="text-red-600 hover:bg-red-50 p-1 rounded"><Trash2 size={16} /></button>
+                    </div>
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className={`w-3 h-3 rounded-full bg-${category.color}-500`}></div>
+                        <h3 className="font-bold text-lg text-slate-800">{category.name}</h3>
+                        <span className={`text-xs px-2 py-0.5 rounded font-bold border ${category.requiredPlan === 'pro' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-green-50 text-green-700 border-green-200'}`}>{category.requiredPlan === 'pro' ? 'PRO' : 'Free'}</span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                        {category.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-sm bg-slate-50 p-2 rounded border border-slate-100">
+                                <div className="flex items-center gap-2">
+                                    {getFileTypeInfo(item.title).icon}
+                                    <span className="truncate max-w-[180px]">{item.title}</span>
+                                </div>
+                                <span className="text-slate-400 text-xs">{item.size}</span>
+                            </div>
+                        ))}
+                        {category.items.length === 0 && <div className="text-center text-slate-400 text-xs py-2">暂无文件</div>}
+                    </div>
+                </div>
+            ))}
+            {knowledgeCategories.filter(c => c.section === activeResourceSection).length === 0 && (
+                <div className="col-span-2 text-center py-12 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">暂无分类，请点击右上角添加</div>
+            )}
+        </div>
+
+        {isEditingCategory && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-xl w-full max-w-2xl flex flex-col shadow-2xl animate-in zoom-in-95 max-h-[90vh]">
+                    <div className="p-4 border-b flex justify-between items-center">
+                        <h3 className="font-bold text-lg">{editingCategory.id ? '编辑分类' : '新增分类'}</h3>
+                        <button onClick={() => setIsEditingCategory(false)}><X size={20} /></button>
+                    </div>
+                    <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="block text-xs font-bold text-slate-500 mb-1">分类名称</label><input className="w-full border p-2 rounded text-sm" value={editingCategory.name || ''} onChange={e => setEditingCategory({...editingCategory, name: e.target.value})} /></div>
+                            <div><label className="block text-xs font-bold text-slate-500 mb-1">颜色标记</label>
+                                <select className="w-full border p-2 rounded text-sm bg-white" value={editingCategory.color || 'blue'} onChange={e => setEditingCategory({...editingCategory, color: e.target.value})}>
+                                    {['blue', 'red', 'green', 'yellow', 'purple', 'indigo', 'pink', 'orange', 'teal', 'cyan'].map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div><label className="block text-xs font-bold text-slate-500 mb-1">所需权限</label>
+                                <select className="w-full border p-2 rounded text-sm bg-white" value={editingCategory.requiredPlan || 'free'} onChange={e => setEditingCategory({...editingCategory, requiredPlan: e.target.value as any})}>
+                                    <option value="free">免费 (Free)</option>
+                                    <option value="pro">专业版 (Pro)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-slate-200 pt-4">
+                            <div className="flex justify-between items-center mb-3">
+                                <label className="block text-xs font-bold text-slate-500">包含文件</label>
+                                <label className="text-xs font-bold text-blue-600 cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">
+                                    + 上传文件 <input type="file" multiple className="hidden" onChange={handleResourceUpload} />
+                                </label>
+                            </div>
+                            <div className="space-y-2 max-h-64 overflow-y-auto bg-slate-50 p-2 rounded border border-slate-200">
+                                {editingCategory.items?.map((item, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded border border-slate-100 shadow-sm">
+                                        {getFileTypeInfo(item.title).icon}
+                                        <div className="flex-1 min-w-0">
+                                            <input className="w-full text-sm border-none p-0 focus:ring-0" value={item.title} onChange={(e) => updateResourceItem(idx, 'title', e.target.value)} />
+                                        </div>
+                                        <span className="text-xs text-slate-400 w-16 text-right">{item.size}</span>
+                                        <button onClick={() => removeResourceItem(idx)} className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
+                                    </div>
+                                ))}
+                                {(!editingCategory.items || editingCategory.items.length === 0) && <div className="text-center text-slate-400 text-xs py-4">暂无文件</div>}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-4 border-t bg-slate-50 flex justify-end gap-2">
+                        <button onClick={() => setIsEditingCategory(false)} className="px-4 py-2 border rounded text-slate-600 text-sm font-bold">取消</button>
+                        <button onClick={handleSaveCategory} className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-bold">保存分类</button>
+                    </div>
+                </div>
+            </div>
+        )}
+    </div>
+  );
+
+  const renderUsersTab = () => {
+    const handleEditPlansConfig = (plan: 'free' | 'pro', field: 'title' | 'subtitle' | 'buttonText', val: string) => {
+       if(!plansConfig) return;
+       const newConfig = { ...plansConfig };
+       newConfig[plan][field] = val;
+       setPlansConfig(newConfig);
+    };
+
+    const handleAddPlanFeature = (plan: 'free' | 'pro') => {
+        if(!plansConfig) return;
+        const newConfig = { ...plansConfig };
+        newConfig[plan].features.push({ text: '新功能特性', icon: 'Check' });
+        setPlansConfig(newConfig);
+    };
+
+    const handleRemovePlanFeature = (plan: 'free' | 'pro', idx: number) => {
+        if(!plansConfig) return;
+        const newConfig = { ...plansConfig };
+        newConfig[plan].features.splice(idx, 1);
+        setPlansConfig(newConfig);
+    };
+
+    const handleEditPlanFeature = (plan: 'free' | 'pro', idx: number, field: keyof PlanFeature, val: any) => {
+        if(!plansConfig) return;
+        const newConfig = { ...plansConfig };
+        newConfig[plan].features[idx] = { ...newConfig[plan].features[idx], [field]: val };
+        setPlansConfig(newConfig);
+    };
+
+    const renderDetailModal = () => {
+        if (!selectedUserForDetail) return null;
+        const targetUser = users.find(u => u.id === selectedUserForDetail);
+        if (!targetUser) return null;
+
+        const userWatched = getWatchedHistory().filter(h => h.userId === targetUser.id);
+        const userRead = getReadHistory().filter(h => h.userId === targetUser.id);
+        const userNotes = getAdminNotes().filter(n => n.userId === targetUser.id);
+        const userUploads = getUserUploads().filter(u => u.userId === targetUser.id);
+        const userDiagnoses = getDiagnosisSubmissions().filter(d => d.userId === targetUser.id);
+
+        return (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-in fade-in">
+               <div className="bg-white rounded-2xl w-full max-w-5xl h-[85vh] flex overflow-hidden shadow-2xl animate-in zoom-in-95">
+                  <div className="w-80 bg-slate-50 border-r border-slate-200 p-6 flex flex-col">
+                      <div className="flex items-center gap-4 mb-6">
+                          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-2xl font-bold">
+                              {targetUser.name.charAt(0)}
+                          </div>
+                          <div>
+                              <h2 className="font-bold text-xl text-slate-900">{targetUser.name}</h2>
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold border ${targetUser.plan === 'pro' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                  {targetUser.plan === 'pro' ? 'PRO Member' : 'Free Plan'}
+                              </span>
+                          </div>
+                      </div>
+                      
+                      <div className="space-y-4 flex-1">
+                          <div><label className="text-xs font-bold text-slate-400 uppercase">邮箱</label><div className="text-sm font-medium">{targetUser.email}</div></div>
+                          <div><label className="text-xs font-bold text-slate-400 uppercase">手机</label><div className="text-sm font-medium">{targetUser.phone || '-'}</div></div>
+                          <div><label className="text-xs font-bold text-slate-400 uppercase">角色</label><div className="text-sm font-medium capitalize">{targetUser.role}</div></div>
+                      </div>
+
+                      <div className="mt-auto pt-6 border-t border-slate-200">
+                          <button onClick={() => setSelectedUserForDetail(null)} className="w-full py-2 bg-white border border-slate-300 rounded-lg text-slate-700 font-bold hover:bg-slate-100">关闭</button>
+                      </div>
+                  </div>
+
+                  <div className="flex-1 flex flex-col bg-white overflow-hidden">
+                      <div className="overflow-y-auto p-8 space-y-8">
+                          <div>
+                              <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2"><Video size={18} /> 视频观看历史 ({userWatched.length})</h3>
+                              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                                  {userWatched.length === 0 ? <div className="p-6 text-center text-slate-400 text-sm">暂无记录</div> : 
+                                    userWatched.map((w, i) => {
+                                        const lesson = lessons.find(l => l.id === w.lessonId);
+                                        return (
+                                            <div key={i} className="p-4 border-b border-slate-100 last:border-0 hover:bg-slate-50 flex items-center gap-4">
+                                                <div className="flex-1">
+                                                    <div className="font-bold text-sm text-slate-800">{lesson?.title || 'Unknown Video'}</div>
+                                                    <div className="text-xs text-slate-500 mt-1">观看时间: {w.watchedAt}</div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-xs font-bold bg-blue-50 text-blue-600 px-2 py-1 rounded">进度: {w.progress}%</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                  }
+                              </div>
+                          </div>
+
+                          <div>
+                              <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2"><BookOpen size={18} /> 文章阅读历史 ({userRead.length})</h3>
+                              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                                  {userRead.length === 0 ? <div className="p-6 text-center text-slate-400 text-sm">暂无记录</div> : 
+                                    userRead.map((r, i) => {
+                                        const post = blogPosts.find(p => p.id === r.articleId);
+                                        return (
+                                            <div key={i} className="p-4 border-b border-slate-100 last:border-0 hover:bg-slate-50 flex justify-between items-center">
+                                                <div className="font-bold text-sm text-slate-800">{post?.title || 'Unknown Article'}</div>
+                                                <div className="text-xs text-slate-500">{r.readAt}</div>
+                                            </div>
+                                        );
+                                    })
+                                  }
+                              </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-6">
+                              <div>
+                                  <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2"><PenTool size={18} /> 学习笔记 ({userNotes.length})</h3>
+                                  <div className="bg-slate-50 rounded-xl p-4 h-48 overflow-y-auto border border-slate-200 space-y-2">
+                                      {userNotes.map((n, i) => (
+                                          <div key={i} className="bg-white p-3 rounded border border-slate-100 text-xs">
+                                              <div className="font-bold text-slate-700 mb-1">{n.lessonTitle}</div>
+                                              <div className="text-slate-500">{n.content}</div>
+                                          </div>
+                                      ))}
+                                      {userNotes.length === 0 && <div className="text-center text-slate-400 text-xs mt-10">暂无笔记</div>}
+                                  </div>
+                              </div>
+                              <div>
+                                  <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2"><Upload size={18} /> 上传与诊断</h3>
+                                  <div className="bg-slate-50 rounded-xl p-4 h-48 overflow-y-auto border border-slate-200 space-y-2">
+                                      {userUploads.map((u, i) => (
+                                          <div key={i} className="flex justify-between items-center text-xs bg-white p-2 rounded border border-slate-100">
+                                              <span>📄 {u.fileName}</span>
+                                              <span className="text-slate-400">{u.uploadDate}</span>
+                                          </div>
+                                      ))}
+                                      {userDiagnoses.map((d, i) => (
+                                          <div key={i} className="flex justify-between items-center text-xs bg-white p-2 rounded border border-slate-100">
+                                              <span className="text-purple-600 font-bold">🩺 诊断提交</span>
+                                              <span className="text-slate-400">{d.submittedAt}</span>
+                                          </div>
+                                      ))}
+                                      {userUploads.length === 0 && userDiagnoses.length === 0 && <div className="text-center text-slate-400 text-xs mt-10">暂无记录</div>}
+                                  </div>
+                              </div>
+                          </div>
+
+                      </div>
+                  </div>
+               </div>
+            </div>
+        );
+    };
+
+    return (
+      <div className="space-y-6 animate-in fade-in">
+        <div className="flex gap-6 mb-6 border-b border-slate-200">
+          <button onClick={() => setUserSubTab('list')} className={`px-2 py-3 border-b-2 text-sm font-bold transition-colors flex items-center gap-2 ${userSubTab === 'list' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+             <UserIcon size={16} /> 用户列表
+          </button>
+          <button onClick={() => setUserSubTab('plans')} className={`px-2 py-3 border-b-2 text-sm font-bold transition-colors flex items-center gap-2 ${userSubTab === 'plans' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+             <CreditCard size={16} /> 订阅配置
+          </button>
+          <button onClick={() => setUserSubTab('permissions')} className={`px-2 py-3 border-b-2 text-sm font-bold transition-colors flex items-center gap-2 ${userSubTab === 'permissions' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+             <Lock size={16} /> 权限配置
+          </button>
+          <button onClick={() => setUserSubTab('business')} className={`px-2 py-3 border-b-2 text-sm font-bold transition-colors flex items-center gap-2 ${userSubTab === 'business' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+             <Briefcase size={16} /> 商务对接
+          </button>
+        </div>
+
+        {userSubTab === 'list' && (
+            <>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Users size={20} /> 用户列表</h3>
+                    <button onClick={() => { setEditingUser({}); setIsEditingUser(true); }} className="bg-slate-900 text-white px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold hover:bg-black transition-colors"><Plus size={14} /> 新增用户</button>
+                </div>
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                        <tr>
+                            <th className="p-4 w-10"><input type="checkbox" className="rounded" /></th>
+                            <th className="p-4 font-bold w-1/4">姓名</th>
+                            <th className="p-4 font-bold w-1/3">邮箱</th>
+                            <th className="p-4 font-bold">角色</th>
+                            <th className="p-4 font-bold">订阅计划</th>
+                            <th className="p-4 font-bold text-right pr-6">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                        {users.map(u => (
+                            <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
+                                <td className="p-4"><input type="checkbox" className="rounded" /></td>
+                                <td className="p-4 font-bold text-slate-800">{u.name}</td>
+                                <td className="p-4 text-slate-500">{u.email}</td>
+                                <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>{u.role}</span></td>
+                                <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${u.plan === 'pro' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>{u.plan}</span></td>
+                                <td className="p-4 pr-6 text-right flex justify-end gap-3 items-center">
+                                    <button onClick={() => setSelectedUserForDetail(u.id)} className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded hover:bg-purple-100 transition-colors">查看数据</button>
+                                    <button onClick={() => { setEditingUser(u); setIsEditingUser(true); }} className="text-slate-400 hover:text-blue-600"><Edit size={16} /></button>
+                                    <button onClick={() => handleDeleteUser(u.id)} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
+                                </td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
+                </div>
+            </>
+        )}
+
+        {userSubTab === 'plans' && plansConfig && (
+            <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><CreditCard size={20} /> 订阅计划配置</h3>
+                    <button onClick={handleSavePlanConfig} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center gap-2"><Save size={16} /> 保存配置</button>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4 text-slate-500 font-bold uppercase text-xs tracking-wider"><div className="w-2 h-2 rounded-full bg-slate-400"></div> 免费版 (Free)</div>
+                        <div className="space-y-4">
+                            <div><label className="text-xs font-bold text-slate-500">计划标题</label><input className="w-full border p-2 rounded text-sm mt-1" value={plansConfig.free.title} onChange={(e) => handleEditPlansConfig('free', 'title', e.target.value)} /></div>
+                            <div><label className="text-xs font-bold text-slate-500">副标题</label><input className="w-full border p-2 rounded text-sm mt-1" value={plansConfig.free.subtitle} onChange={(e) => handleEditPlansConfig('free', 'subtitle', e.target.value)} /></div>
+                            <div><label className="text-xs font-bold text-slate-500">按钮文本</label><input className="w-full border p-2 rounded text-sm mt-1" value={plansConfig.free.buttonText} onChange={(e) => handleEditPlansConfig('free', 'buttonText', e.target.value)} /></div>
+                            
+                            <div className="pt-4 border-t border-slate-100">
+                                <label className="text-xs font-bold text-slate-500 mb-2 block">功能列表</label>
+                                <div className="space-y-2">
+                                    {plansConfig.free.features.map((feat, idx) => (
+                                        <div key={idx} className="flex gap-2 items-center">
+                                            <select className="border p-1.5 rounded text-xs w-24" value={feat.icon} onChange={(e) => handleEditPlanFeature('free', idx, 'icon', e.target.value)}>
+                                                {['Video', 'Zap', 'Check', 'ArrowUpRight', 'FileText', 'Star'].map(i => <option key={i} value={i}>{i}</option>)}
+                                            </select>
+                                            <input className="flex-1 border p-1.5 rounded text-xs" value={feat.text} onChange={(e) => handleEditPlanFeature('free', idx, 'text', e.target.value)} />
+                                            <button onClick={() => handleRemovePlanFeature('free', idx)} className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
+                                        </div>
+                                    ))}
+                                    <button onClick={() => handleAddPlanFeature('free')} className="text-xs text-blue-600 font-bold mt-2 flex items-center gap-1 hover:underline">+ 添加功能项</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-blue-50/50 border border-blue-200 rounded-xl p-6 shadow-sm relative overflow-hidden">
+                        <div className="flex items-center gap-2 mb-4 text-blue-600 font-bold uppercase text-xs tracking-wider"><div className="w-2 h-2 rounded-full bg-blue-600"></div> 专业版 (PRO)</div>
+                        <div className="space-y-4 relative z-10">
+                            <div><label className="text-xs font-bold text-blue-400">计划标题</label><input className="w-full border border-blue-200 p-2 rounded text-sm mt-1 bg-white focus:ring-2 focus:ring-blue-500 outline-none" value={plansConfig.pro.title} onChange={(e) => handleEditPlansConfig('pro', 'title', e.target.value)} /></div>
+                            <div><label className="text-xs font-bold text-blue-400">副标题</label><input className="w-full border border-blue-200 p-2 rounded text-sm mt-1 bg-white focus:ring-2 focus:ring-blue-500 outline-none" value={plansConfig.pro.subtitle} onChange={(e) => handleEditPlansConfig('pro', 'subtitle', e.target.value)} /></div>
+                            <div><label className="text-xs font-bold text-blue-400">按钮文本</label><input className="w-full border border-blue-200 p-2 rounded text-sm mt-1 bg-white focus:ring-2 focus:ring-blue-500 outline-none" value={plansConfig.pro.buttonText} onChange={(e) => handleEditPlansConfig('pro', 'buttonText', e.target.value)} /></div>
+                            
+                            <div className="pt-4 border-t border-blue-200">
+                                <label className="text-xs font-bold text-blue-400 mb-2 block">功能列表</label>
+                                <div className="space-y-2">
+                                    {plansConfig.pro.features.map((feat, idx) => (
+                                        <div key={idx} className="flex gap-2 items-center">
+                                            <select className="border border-blue-200 p-1.5 rounded text-xs w-24 bg-white" value={feat.icon} onChange={(e) => handleEditPlanFeature('pro', idx, 'icon', e.target.value)}>
+                                                {['Video', 'Zap', 'Check', 'ArrowUpRight', 'FileText', 'Star'].map(i => <option key={i} value={i}>{i}</option>)}
+                                            </select>
+                                            <input className="flex-1 border border-blue-200 p-1.5 rounded text-xs bg-white" value={feat.text} onChange={(e) => handleEditPlanFeature('pro', idx, 'text', e.target.value)} />
+                                            <button onClick={() => handleRemovePlanFeature('pro', idx)} className="text-blue-300 hover:text-red-500"><Trash2 size={14} /></button>
+                                        </div>
+                                    ))}
+                                    <button onClick={() => handleAddPlanFeature('pro')} className="text-xs text-blue-600 font-bold mt-2 flex items-center gap-1 hover:underline">+ 添加功能项</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {userSubTab === 'permissions' && (
+            <div className="space-y-6">
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><Lock size={20} /> 权限模块配置</h3>
+                    
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-8">
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">新增权限定义</label>
+                        <div className="flex gap-4 items-end">
+                            <div className="flex-1"><input className="w-full border p-2 rounded text-sm" placeholder="Key (e.g. export_data)" value={newPermission.key} onChange={e => setNewPermission({...newPermission, key: e.target.value})} /></div>
+                            <div className="flex-1"><input className="w-full border p-2 rounded text-sm" placeholder="Label (e.g. 导出数据)" value={newPermission.label} onChange={e => setNewPermission({...newPermission, label: e.target.value})} /></div>
+                            <div className="flex-1"><input className="w-full border p-2 rounded text-sm" placeholder="Module (e.g. 报表)" value={newPermission.module} onChange={e => setNewPermission({...newPermission, module: e.target.value})} /></div>
+                            <button onClick={handleAddPermission} className="bg-blue-600 text-white px-4 py-2 rounded font-bold text-sm hover:bg-blue-700">添加</button>
+                        </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-lg border border-slate-200">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 text-slate-500 font-bold">
+                                <tr>
+                                    <th className="p-4">模块</th>
+                                    <th className="p-4">权限名称</th>
+                                    <th className="p-4 text-slate-400 font-mono text-xs">Key</th>
+                                    <th className="p-4 text-center w-32">免费版 (Free)</th>
+                                    <th className="p-4 text-center w-32">专业版 (Pro)</th>
+                                    <th className="p-4 text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {permissions.map((p) => (
+                                    <tr key={p.key} className="hover:bg-slate-50">
+                                        <td className="p-4 text-slate-500">{p.module || '通用'}</td>
+                                        <td className="p-4 font-bold text-slate-800">{p.label}</td>
+                                        <td className="p-4 text-slate-400 font-mono text-xs">{p.key}</td>
+                                        <td className="p-4 text-center">
+                                            <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600" checked={permConfig.free[p.key] || false} onChange={() => togglePermission('free', p.key)} />
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600" checked={permConfig.pro[p.key] || false} onChange={() => togglePermission('pro', p.key)} />
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            <button onClick={() => handleDeletePermission(p.key)} className="text-slate-400 hover:text-red-500"><Trash2 size={16} /></button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {userSubTab === 'business' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-8">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><Smartphone size={20} /> 商务联系人配置</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">联系人姓名</label>
+                                <input className="w-full border p-3 rounded-lg text-sm" value={businessContact?.contactPerson || ''} onChange={(e) => setBusinessContact(prev => prev ? {...prev, contactPerson: e.target.value} : null)} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">微信号 / 电话</label>
+                                <input className="w-full border p-3 rounded-lg text-sm" value={businessContact?.contactMethod || ''} onChange={(e) => setBusinessContact(prev => prev ? {...prev, contactMethod: e.target.value} : null)} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">联系邮箱</label>
+                                <input className="w-full border p-3 rounded-lg text-sm" value={businessContact?.email || ''} onChange={(e) => setBusinessContact(prev => prev ? {...prev, email: e.target.value} : null)} />
+                            </div>
+                            <button onClick={handleSaveBusinessConfig} className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 mt-2">保存配置</button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><QrCode size={20} /> 支付/商务二维码</h3>
+                        <div className="flex gap-6 items-start">
+                            <div className="w-32 h-32 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center overflow-hidden">
+                                {paymentQR ? <img src={paymentQR} className="w-full h-full object-contain" /> : <QrCode size={32} className="text-slate-300" />}
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-xs text-slate-500 mb-4 leading-relaxed">此二维码将显示在“升级计划”页面，供用户扫码联系商务或支付。</p>
+                                <label className="inline-block px-4 py-2 border border-slate-300 rounded-lg text-sm font-bold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors">
+                                    上传图片 <input type="file" className="hidden" accept="image/*" onChange={handleQRUpload} />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
+                    <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2"><Briefcase size={20} /> 销售线索 (Leads)</h3>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-0">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 text-slate-500 sticky top-0">
+                                <tr>
+                                    <th className="p-4">提交时间</th>
+                                    <th className="p-4">姓名/职位</th>
+                                    <th className="p-4">联系方式</th>
+                                    <th className="p-4">状态</th>
+                                    <th className="p-4 text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {businessLeads.map(lead => (
+                                    <tr key={lead.id} className="hover:bg-slate-50">
+                                        <td className="p-4 text-xs text-slate-500 font-mono">{lead.submittedAt}</td>
+                                        <td className="p-4">
+                                            <div className="font-bold text-slate-800">{lead.name}</div>
+                                            <div className="text-xs text-slate-500">{lead.position} @ {lead.company}</div>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="text-xs">{lead.phone}</div>
+                                            <div className="text-xs text-slate-400">{lead.email}</div>
+                                        </td>
+                                        <td className="p-4">
+                                            <select 
+                                                className={`text-xs font-bold px-2 py-1 rounded border outline-none ${lead.status === 'new' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}
+                                                value={lead.status}
+                                                onChange={(e) => { updateBusinessLeadStatus(lead.id, e.target.value as any); setBusinessLeads(getBusinessLeads()); }}
+                                            >
+                                                <option value="new">新线索</option>
+                                                <option value="contacted">已跟进</option>
+                                            </select>
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            <button onClick={() => handleDeleteLead(lead.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={16} /></button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {businessLeads.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-400">暂无销售线索</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {isEditingUser && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl w-full max-w-md p-6 animate-in zoom-in-95 relative">
+              <button onClick={() => setIsEditingUser(false)} className="absolute top-4 right-4 p-1 hover:bg-slate-100 rounded-full"><X size={20} /></button>
+              <h3 className="text-lg font-bold mb-4">{editingUser.id ? '编辑用户' : '添加用户'}</h3>
+              <div className="space-y-4">
+                <div><label className="block text-sm font-bold text-slate-700 mb-1">姓名</label><input className="w-full border p-2 rounded-lg text-sm" value={editingUser.name || ''} onChange={e => setEditingUser({...editingUser, name: e.target.value})} /></div>
+                <div><label className="block text-sm font-bold text-slate-700 mb-1">邮箱</label><input className="w-full border p-2 rounded-lg text-sm" value={editingUser.email || ''} onChange={e => setEditingUser({...editingUser, email: e.target.value})} /></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><label className="block text-sm font-bold text-slate-700 mb-1">角色</label><select className="w-full border p-2 rounded-lg text-sm bg-white" value={editingUser.role || 'user'} onChange={e => setEditingUser({...editingUser, role: e.target.value as 'admin'|'user'})}><option value="user">用户</option><option value="admin">管理员</option></select></div>
+                  <div><label className="block text-sm font-bold text-slate-700 mb-1">计划</label><select className="w-full border p-2 rounded-lg text-sm bg-white" value={editingUser.plan || 'free'} onChange={e => setEditingUser({...editingUser, plan: e.target.value as 'free'|'pro'})}><option value="free">免费版</option><option value="pro">专业版</option></select></div>
+                </div>
+                <div className="pt-4 flex justify-end"><button onClick={handleSaveUser} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">保存用户</button></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {renderDetailModal()}
+      </div>
+    );
+  };
+
+  // Define renderSolutionTab which was missing
+  const renderSolutionTab = () => {
+      const filteredLessons = lessons.filter(l => (l.title || '').toLowerCase().includes((lessonSearchQuery || '').toLowerCase()) || (l.category || '').toLowerCase().includes((lessonSearchQuery || '').toLowerCase()));
+
+      return (
+          <div className="space-y-6 animate-in fade-in">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                  <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                      <MonitorPlay size={24} className="text-blue-600" />
+                      视频课程库管理
+                  </h2>
+                  <button 
+                      onClick={() => { 
+                          setEditingLesson({}); 
+                          setLessonVideoSourceType('link'); 
+                          setLessonCoverSourceType('link');
+                          setTranscriptText('');
+                          setIsEditingLesson(true); 
+                      }} 
+                      className="bg-blue-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-blue-700 text-sm font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95 whitespace-nowrap"
+                  >
+                      <Plus size={18} /> 新增课程
+                  </button>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                  <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                          type="text" 
+                          placeholder="搜索课程标题或分类..." 
+                          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          value={lessonSearchQuery}
+                          onChange={(e) => setLessonSearchQuery(e.target.value)}
+                      />
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <span className="font-bold">{filteredLessons.length}</span> 个课程
+                  </div>
+              </div>
+
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                          <tr>
+                              <th className="p-4 pl-6 font-bold w-20">封面</th>
+                              <th className="p-4 font-bold">课程信息</th>
+                              <th className="p-4 font-bold">分类</th>
+                              <th className="p-4 font-bold">时长</th>
+                              <th className="p-4 font-bold">适用用户</th>
+                              <th className="p-4 font-bold text-right pr-6">操作</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                          {filteredLessons.map(lesson => (
+                              <tr key={lesson.id} className="hover:bg-blue-50/30 transition-colors group">
+                                  <td className="p-4 pl-6">
+                                      <div className="w-16 h-10 rounded-md overflow-hidden bg-slate-200 relative">
+                                          <img src={lesson.thumbnail} alt="" className="w-full h-full object-cover" />
+                                      </div>
+                                  </td>
+                                  <td className="p-4">
+                                      <div className="font-bold text-slate-800 line-clamp-1">{lesson.title}</div>
+                                      <div className="text-xs text-slate-400 mt-0.5">ID: {lesson.id}</div>
+                                  </td>
+                                  <td className="p-4">
+                                      <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded border border-slate-200">{lesson.category || '通用'}</span>
+                                  </td>
+                                  <td className="p-4 font-mono text-slate-600 text-xs">{lesson.duration}</td>
+                                  <td className="p-4">
+                                      <span className={`px-2 py-1 text-xs rounded font-bold border ${lesson.requiredPlan === 'pro' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                                          {lesson.requiredPlan === 'pro' ? 'PRO 会员' : '免费用户'}
+                                      </span>
+                                  </td>
+                                  <td className="p-4 pr-6 text-right">
+                                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button onClick={() => handleEditLesson(lesson)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="编辑">
+                                              <Edit size={16} />
+                                          </button>
+                                          <button onClick={() => handleDeleteLesson(lesson.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="删除">
+                                              <Trash2 size={16} />
+                                          </button>
+                                      </div>
+                                  </td>
+                              </tr>
+                          ))}
+                          {filteredLessons.length === 0 && (
+                              <tr><td colSpan={6} className="p-8 text-center text-slate-400">未找到课程</td></tr>
+                          )}
+                      </tbody>
+                  </table>
+              </div>
+
+              {isEditingLesson && (
+                  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
+                      <div className="bg-white rounded-xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl animate-in zoom-in-95 overflow-hidden">
+                          <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
+                              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                  {editingLesson.id ? <Edit size={20} className="text-blue-600" /> : <Plus size={20} className="text-blue-600" />}
+                                  {editingLesson.id ? '编辑视频课程' : '新增视频课程'}
+                              </h3>
+                              <button onClick={() => setIsEditingLesson(false)} className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                                  <X size={24} />
+                              </button>
+                          </div>
+
+                          <div className="flex-1 flex overflow-hidden bg-slate-50">
+                              <div className="w-5/12 p-6 overflow-y-auto border-r border-slate-200 bg-white">
+                                  <div className="space-y-6">
+                                      
+                                      <div>
+                                          <label className="block text-sm font-bold text-slate-900 mb-2">课程标题</label>
+                                          <input 
+                                              className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                                              value={editingLesson.title || ''}
+                                              onChange={(e) => setEditingLesson({...editingLesson, title: e.target.value})}
+                                              placeholder="请输入课程名称"
+                                          />
+                                      </div>
+
+                                      <div className="grid grid-cols-2 gap-4">
+                                          <div>
+                                              <label className="block text-sm font-bold text-slate-900 mb-2">课程分类</label>
+                                              <input 
+                                                  list="categories"
+                                                  className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                  value={editingLesson.category || ''}
+                                                  onChange={(e) => setEditingLesson({...editingLesson, category: e.target.value})}
+                                                  placeholder="选择或输入分类"
+                                              />
+                                              <datalist id="categories">
+                                                  <option value="人员管理" />
+                                                  <option value="WFM管理" />
+                                                  <option value="质量与体验" />
+                                                  <option value="运营效率" />
+                                              </datalist>
+                                          </div>
+                                          <div>
+                                              <label className="block text-sm font-bold text-slate-900 mb-2">适用用户</label>
+                                              <select 
+                                                  className="w-full border border-slate-300 p-3 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                  value={editingLesson.requiredPlan || 'free'}
+                                                  onChange={(e) => setEditingLesson({...editingLesson, requiredPlan: e.target.value as 'free'|'pro'})}
+                                              >
+                                                  <option value="free">免费用户 (Free)</option>
+                                                  <option value="pro">专业版 (Pro Only)</option>
+                                              </select>
+                                          </div>
+                                      </div>
+
+                                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                          <label className="block text-sm font-bold text-slate-900 mb-3">视频源 (二选一)</label>
+                                          <div className="flex gap-6 mb-4">
+                                              <label className="flex items-center gap-2 cursor-pointer">
+                                                  <input type="radio" name="videoSourceType" checked={lessonVideoSourceType === 'link'} onChange={() => setLessonVideoSourceType('link')} className="text-blue-600" />
+                                                  <span className="text-sm font-medium">方式A: 外部链接</span>
+                                              </label>
+                                              <label className="flex items-center gap-2 cursor-pointer">
+                                                  <input type="radio" name="videoSourceType" checked={lessonVideoSourceType === 'upload'} onChange={() => setLessonVideoSourceType('upload')} className="text-blue-600" />
+                                                  <span className="text-sm font-medium">方式B: 本地上传</span>
+                                              </label>
+                                          </div>
+                                          
+                                          {lessonVideoSourceType === 'link' ? (
+                                              <input 
+                                                  className="w-full border border-slate-300 p-2.5 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                  value={editingLesson.videoUrl || ''}
+                                                  onChange={(e) => setEditingLesson({...editingLesson, videoUrl: e.target.value})}
+                                                  placeholder="输入 https://..."
+                                              />
+                                          ) : (
+                                              <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                                                  <div className="flex flex-col items-center pt-2 pb-3">
+                                                      <Upload className="w-6 h-6 text-slate-400 mb-1" />
+                                                      <p className="text-xs text-slate-500">点击上传视频文件 (MP4/WebM)</p>
+                                                  </div>
+                                                  <input type="file" className="hidden" accept="video/*" onChange={(e) => { if(e.target.files?.[0]) setEditingLesson({...editingLesson, videoUrl: URL.createObjectURL(e.target.files[0])}) }} />
+                                              </label>
+                                          )}
+                                          {editingLesson.videoUrl && <div className="mt-2 text-[10px] text-slate-400 truncate">当前源: {editingLesson.videoUrl}</div>}
+                                      </div>
+
+                                      <div>
+                                          <label className="block text-sm font-bold text-slate-900 mb-2">封面 (Cover)</label>
+                                          <div className="flex gap-4">
+                                              <div className="w-24 h-24 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                                  {editingLesson.thumbnail ? <img src={editingLesson.thumbnail} alt="Cover" className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-300" />}
+                                              </div>
+                                              <div className="flex-1 space-y-3">
+                                                  <input 
+                                                      className="w-full border border-slate-300 p-2.5 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                      value={editingLesson.thumbnail || ''}
+                                                      onChange={(e) => setEditingLesson({...editingLesson, thumbnail: e.target.value})}
+                                                      placeholder="封面图片 URL"
+                                                  />
+                                                  <label className="w-full py-2 border border-slate-300 rounded-lg bg-white text-sm font-bold text-slate-600 flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors">
+                                                      <Upload size={14} /> 上传
+                                                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleMediaImport(e, (url) => setEditingLesson({...editingLesson, thumbnail: url}))} />
+                                                  </label>
+                                              </div>
+                                          </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-2 gap-4">
+                                          <div>
+                                              <label className="block text-sm font-bold text-slate-900 mb-2">时长</label>
+                                              <input 
+                                                  className="w-full border border-slate-300 p-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                  value={editingLesson.duration || ''}
+                                                  onChange={(e) => setEditingLesson({...editingLesson, duration: e.target.value})}
+                                                  placeholder="例如: 08:45"
+                                              />
+                                          </div>
+                                      </div>
+
+                                  </div>
+                              </div>
+
+                              <div className="w-7/12 p-6 flex flex-col h-full bg-slate-50">
+                                  <div className="flex justify-between items-end mb-2">
+                                      <label className="text-sm font-bold text-slate-900">逐字稿 (支持时间戳)</label>
+                                      <div className="flex gap-2">
+                                          <div className="flex items-center bg-white border border-blue-200 rounded-lg p-1 pl-2 shadow-sm">
+                                              <select 
+                                                  className="text-xs font-medium text-slate-700 bg-transparent outline-none mr-2 w-24"
+                                                  value={selectedAIModel}
+                                                  onChange={(e) => setSelectedAIModel(e.target.value)}
+                                              >
+                                                  {VIDEO_AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                                              </select>
+                                              <button 
+                                                  onClick={handleGenerateTranscript}
+                                                  disabled={isGeneratingTranscript || !editingLesson.title}
+                                                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                              >
+                                                  {isGeneratingTranscript ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                                                  AI解析生成
+                                              </button>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  
+                                  <div className="flex-1 relative rounded-xl border border-slate-300 bg-white overflow-hidden shadow-inner flex flex-col">
+                                      <textarea 
+                                          className="flex-1 w-full h-full p-4 text-sm font-mono text-slate-600 bg-transparent outline-none resize-none leading-relaxed"
+                                          value={transcriptText}
+                                          onChange={(e) => setTranscriptText(e.target.value)}
+                                          placeholder={`0 | 大家好，欢迎来到本课程...\n5 | 今天我们要讲的是...\n(格式: 秒数 | 内容)`}
+                                      />
+                                      <div className="p-2 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+                                          <span className="text-[10px] text-slate-400">提示：每行一条，使用 "秒数 | 内容" 格式。AI 生成后可手动微调。</span>
+                                          <label className="text-xs font-bold text-blue-600 hover:underline cursor-pointer flex items-center gap-1">
+                                              <Import size={12} /> 导入文本
+                                              <input type="file" className="hidden" accept=".txt,.srt,.vtt" onChange={(e) => handleTranscriptImport(e, (text) => setTranscriptText(text))} />
+                                          </label>
+                                      </div>
+                                  </div>
+                              </div>
+
+                          </div>
+
+                          <div className="p-4 border-t border-slate-200 bg-white flex justify-end gap-3">
+                              <button onClick={() => setIsEditingLesson(false)} className="px-6 py-2.5 border border-slate-300 rounded-lg text-slate-700 font-bold hover:bg-slate-50 transition-colors">
+                                  取消
+                              </button>
+                              <button onClick={handleSaveLesson} className="px-8 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all active:scale-95">
+                                  保存项目
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              )}
+          </div>
+      );
+  };
+
+  const renderBehaviorTab = () => {
+    const filteredActivities = activities.filter(a => 
+      (behaviorFilterUser === 'all' || a.userId === behaviorFilterUser) &&
+      (behaviorFilterType === 'all' || a.type === behaviorFilterType)
+    );
+
+    return (
+      <div className="space-y-6 animate-in fade-in">
+        <div className="flex gap-6 mb-6 border-b border-slate-200">
+          <button onClick={() => setBehaviorTab('overview')} className={`px-2 py-3 border-b-2 text-sm font-bold transition-colors flex items-center gap-2 ${behaviorTab === 'overview' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+             <Activity size={16} /> 概览与统计
+          </button>
+          <button onClick={() => setBehaviorTab('activity')} className={`px-2 py-3 border-b-2 text-sm font-bold transition-colors flex items-center gap-2 ${behaviorTab === 'activity' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+             <List size={16} /> 行动日志
+          </button>
+          <button onClick={() => setBehaviorTab('notes')} className={`px-2 py-3 border-b-2 text-sm font-bold transition-colors flex items-center gap-2 ${behaviorTab === 'notes' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+             <MessageSquare size={16} /> 笔记与留言管理
+          </button>
+        </div>
+        
+        {behaviorTab === 'overview' && (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between h-32">
+                 <div className="text-xs font-bold text-slate-500 uppercase">总互动次数</div>
+                 <div className="text-4xl font-bold text-slate-900">{stats.totalInteractions}</div>
+              </div>
+              <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between h-32">
+                 <div className="text-xs font-bold text-slate-500 uppercase">笔记与提问</div>
+                 <div className="text-4xl font-bold text-blue-600">{stats.notesCount}</div>
+              </div>
+              <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between h-32">
+                 <div className="text-xs font-bold text-slate-500 uppercase">学习视频数</div>
+                 <div className="text-4xl font-bold text-purple-600">{stats.videoCount}</div>
+              </div>
+              <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between h-32">
+                 <div className="text-xs font-bold text-slate-500 uppercase">活跃用户</div>
+                 <div className="text-4xl font-bold text-green-600">{stats.activeUsers}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><TrendingUp size={18} /> 热门内容排名</h3>
+                    <div className="space-y-4">
+                        {popularContent.map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-3">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${idx < 3 ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-500'}`}>
+                                    {idx + 1}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm text-slate-800 truncate font-medium">{item.title}</div>
+                                    <div className="text-xs text-slate-400 flex items-center gap-1">
+                                        {item.type === 'video' ? <Video size={10} /> : <BookOpen size={10} />}
+                                        {item.count} 次学习
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        {popularContent.length === 0 && <div className="text-sm text-slate-400 text-center py-4">暂无数据</div>}
+                    </div>
+                </div>
+
+                <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><BarChart2 size={18} /> 最近活跃动态</h3>
+                    <div className="space-y-6">
+                        {activities.slice(0, 6).map(activity => (
+                            <div key={activity.id} className="flex items-start gap-4 relative pl-4">
+                                <div className="absolute left-0 top-2 bottom-[-24px] w-px bg-slate-100 last:hidden"></div>
+                                
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0 z-10 ${
+                                    activity.type === 'video' ? 'bg-purple-500' :
+                                    activity.type === 'note' ? 'bg-blue-500' :
+                                    activity.type === 'upload' ? 'bg-slate-500' :
+                                    activity.type === 'diagnosis' ? 'bg-green-500' : 'bg-orange-500'
+                                }`}>
+                                    {activity.type === 'video' && <Video size={18} />}
+                                    {activity.type === 'note' && <MessageSquare size={18} />}
+                                    {activity.type === 'upload' && <Upload size={18} />}
+                                    {activity.type === 'diagnosis' && <Stethoscope size={18} />}
+                                    {activity.type === 'article' && <BookOpen size={18} />}
+                                </div>
+                                
+                                <div className="flex-1">
+                                    <div className="flex justify-between items-start">
+                                        <span className="font-bold text-slate-800 text-sm">{activity.userName}</span>
+                                        <span className="text-xs text-slate-400 font-mono">{activity.date}</span>
+                                    </div>
+                                    <div className="text-xs text-slate-500 mt-0.5">{activity.action}</div>
+                                    <div className="text-sm text-slate-700 mt-1 bg-slate-50 p-2 rounded border border-slate-100">
+                                        {activity.target}
+                                        {activity.detail && <div className="text-xs text-slate-400 mt-1">{activity.detail}</div>}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+          </div>
+        )}
+        
+        {behaviorTab === 'activity' && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+             <div className="p-4 border-b border-slate-200 flex flex-wrap gap-4 items-center bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                    <Filter size={16} className="text-slate-400" />
+                    <span className="text-sm font-bold text-slate-700">筛选:</span>
+                </div>
+                
+                <select className="text-sm border border-slate-300 p-2 rounded-lg bg-white outline-none min-w-[120px]" value={behaviorFilterUser} onChange={(e) => setBehaviorFilterUser(e.target.value)}>
+                    <option value="all">所有用户</option>
+                    {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+
+                <select className="text-sm border border-slate-300 p-2 rounded-lg bg-white outline-none min-w-[120px]" value={behaviorFilterType} onChange={(e) => setBehaviorFilterType(e.target.value)}>
+                    <option value="all">所有类型</option>
+                    <option value="video">观看视频</option>
+                    <option value="article">阅读文章</option>
+                    <option value="note">笔记/留言</option>
+                    <option value="upload">文件上传</option>
+                    <option value="diagnosis">诊断提交</option>
+                </select>
+
+                <div className="ml-auto">
+                    <button onClick={handleBehaviorExport} className="flex items-center gap-2 bg-white border border-slate-300 px-4 py-2 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm">
+                        <Download size={16} /> 导出选中
+                    </button>
+                </div>
+             </div>
+
+             <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                        <tr>
+                            <th className="p-4 w-10">
+                                <input type="checkbox" className="rounded border-slate-300" onChange={(e) => toggleSelectAll(e.target.checked)} checked={filteredActivities.length > 0 && behaviorSelectedIds.size === filteredActivities.length} />
+                            </th>
+                            <th className="p-4 font-bold w-40">时间</th>
+                            <th className="p-4 font-bold w-32">用户</th>
+                            <th className="p-4 font-bold w-32">行动类型</th>
+                            <th className="p-4 font-bold">对象/标题</th>
+                            <th className="p-4 font-bold">详细信息</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {filteredActivities.map(activity => (
+                            <tr key={activity.id} className="hover:bg-blue-50/30 transition-colors">
+                                <td className="p-4">
+                                    <input type="checkbox" className="rounded border-slate-300" checked={behaviorSelectedIds.has(activity.id)} onChange={() => toggleSelect(activity.id)} />
+                                </td>
+                                <td className="p-4 text-slate-500 font-mono text-xs">{activity.date}</td>
+                                <td className="p-4 font-bold text-slate-800">{activity.userName}</td>
+                                <td className="p-4">
+                                    <span className={`px-2 py-1 rounded text-xs border ${
+                                        activity.type === 'video' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+                                        activity.type === 'note' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                                        activity.type === 'upload' ? 'bg-slate-100 text-slate-700 border-slate-200' :
+                                        activity.type === 'diagnosis' ? 'bg-green-50 text-green-700 border-green-100' : 
+                                        'bg-orange-50 text-orange-700 border-orange-100'
+                                    }`}>
+                                        {activity.type === 'upload' ? 'Upload' : 
+                                         activity.type === 'diagnosis' ? 'Diagnosis' : 
+                                         activity.type === 'note' ? 'Note' : 
+                                         activity.type === 'video' ? 'Watched' : 'Read'}
+                                    </span>
+                                </td>
+                                <td className="p-4 text-slate-700 font-medium truncate max-w-xs" title={activity.target}>
+                                    {activity.target}
+                                </td>
+                                <td className="p-4 text-slate-500 text-xs truncate max-w-xs" title={activity.detail}>
+                                    {activity.detail}
+                                </td>
+                            </tr>
+                        ))}
+                        {filteredActivities.length === 0 && (
+                            <tr><td colSpan={6} className="p-12 text-center text-slate-400">暂无数据</td></tr>
+                        )}
+                    </tbody>
+                </table>
+             </div>
+          </div>
+        )}
+
+        {behaviorTab === 'notes' && (
+           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
+                  <h3 className="font-bold text-slate-800">用户留言与笔记</h3>
+                  <span className="text-xs text-slate-500">共 {getAdminNotes().length} 条</span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                 {getAdminNotes().map(note => (
+                    <div key={note.id} className="p-6 hover:bg-slate-50 transition-colors group">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
+                                    {note.userName?.[0] || 'U'}
+                                </div>
+                                <div>
+                                    <div className="font-bold text-sm text-slate-900">{note.userName}</div>
+                                    <div className="text-xs text-slate-400">{note.createdAt}</div>
+                                </div>
+                            </div>
+                            <div className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 border border-slate-200">
+                                {note.lessonTitle}
+                            </div>
+                        </div>
+                        
+                        <div className="ml-11">
+                            {note.quote && (
+                                <div className="mb-2 pl-2 border-l-2 border-blue-200 text-xs text-slate-500 italic">
+                                    "{note.quote}"
+                                </div>
+                            )}
+                            <p className="text-sm text-slate-700 leading-relaxed">{note.content}</p>
+                            
+                            <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button className="text-xs text-blue-600 hover:underline font-bold">回复留言</button>
+                                <button onClick={() => { if(window.confirm('删除此笔记?')) deleteAdminNote(note.id); }} className="text-xs text-red-500 hover:underline">删除</button>
+                            </div>
+                        </div>
+                    </div>
+                 ))}
+                 {getAdminNotes().length === 0 && <div className="p-12 text-center text-slate-400">暂无笔记</div>}
+              </div>
+           </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto min-h-screen">
       <header className="mb-8 flex justify-between items-center">

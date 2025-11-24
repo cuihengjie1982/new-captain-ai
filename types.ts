@@ -228,83 +228,34 @@ export interface DiagnosisSubmission {
   submittedAt: string;
   user?: string; // Name or "Guest"
   userId?: string; // Added for linking
+  
+  // Expert Workflow Fields
+  status: 'new' | 'preliminary_provided' | 'report_submitted' | 'final_provided';
+  
+  // Step 1
+  problemDescription?: string;
+  initialFiles?: string[]; 
+  
+  // Step 2
+  expertPreliminaryReply?: string; 
+  templateFile?: string; 
+  
+  // Step 3
+  userReportFile?: string; 
+  userReportDescription?: string; // New: User entered report text
+  
+  // Step 4
+  expertFinalReply?: string;
+  expertFinalFile?: string; 
 }
 
-// New Interface for Blog Comments
-export interface CommentReply {
-  id: string;
-  userName: string;
-  userAvatar?: string;
-  content: string;
-  date: string;
-  likes: number;
-  isLiked: boolean;
-  replyToName?: string; 
-}
-
-export interface BlogPostComment {
-  id: string;
-  postId: string;
-  userName: string;
-  userAvatar?: string;
-  content: string;
-  date: string;
-  likes: number;
-  isLiked: boolean;
-  replies: CommentReply[];
-  isTop?: boolean; // For "Featured/Pinned" comments
-}
-
-// Permission System Types
-export type PermissionKey = string;
-
-export interface PermissionDefinition {
-  key: string;
-  label: string;
-  module?: string; // Added module for grouping permissions
-}
-
-export interface PermissionConfig {
-  free: Record<PermissionKey, boolean>;
-  pro: Record<PermissionKey, boolean>;
-}
-
-// NEW: Email Log Interface
-export interface EmailLog {
-  id: string;
-  recipient: string;
-  code: string;
-  subject: string;
-  sentAt: string;
-  status: 'sent' | 'verified';
-}
-
-// NEW: Business Contact Info Interface
-export interface BusinessContactInfo {
-  contactPerson: string;
-  contactMethod: string; // Phone or WeChat ID
-  email: string;
-}
-
-// NEW: Business Lead Interface (Submitted Form Data)
-export interface BusinessLead {
-  id: string;
-  name: string;
-  position: string; // New: Job Position
-  company: string;
-  phone: string;
-  email: string;
-  submittedAt: string;
-  status: 'new' | 'contacted';
-}
-
-// NEW: Plans Page Configuration
+// Plan Features
 export interface PlanFeature {
   text: string;
-  icon: 'Video' | 'Zap' | 'Check' | 'ArrowUpRight' | 'FileText' | 'Star';
+  icon: string; // Lucide icon name
 }
 
-export interface PlanDetail {
+export interface PlanConfig {
   title: string;
   subtitle: string;
   buttonText: string;
@@ -312,23 +263,86 @@ export interface PlanDetail {
 }
 
 export interface PlansPageConfig {
-  free: PlanDetail;
-  pro: PlanDetail;
+  free: PlanConfig;
+  pro: PlanConfig;
+}
+
+// Permissions
+export type PermissionKey = 'download_resources' | 'expert_diagnosis' | 'export_transcript' | 'advanced_analytics';
+
+export interface PermissionDefinition {
+  key: string;
+  label: string;
+  module: string;
+}
+
+export interface PermissionConfig {
+  free: Record<string, boolean>;
+  pro: Record<string, boolean>;
+}
+
+export interface EmailLog {
+  id: string;
+  recipient: string;
+  code: string;
+  subject: string;
+  sentAt: string;
+  status: 'sent' | 'verified' | 'expired';
+}
+
+export interface BusinessContactInfo {
+    contactPerson: string;
+    contactMethod: string;
+    email: string;
+}
+
+export interface BusinessLead {
+    id: string;
+    name: string;
+    position: string;
+    company: string;
+    phone: string;
+    email: string;
+    submittedAt: string;
+    status: 'new' | 'contacted';
+}
+
+// Comments
+export interface CommentReply {
+  id: string;
+  userName: string;
+  userAvatar: string;
+  content: string;
+  date: string;
+  likes: number;
+  isLiked: boolean;
+}
+
+export interface BlogPostComment {
+  id: string;
+  postId: string;
+  userName: string;
+  userAvatar: string;
+  content: string;
+  date: string;
+  likes: number;
+  isLiked: boolean;
+  replies: CommentReply[];
+  isTop?: boolean;
 }
 
 export enum AppRoute {
-  LOGIN = '/login',
-  BLOG = '/',
+  LOGIN = '/',
+  BLOG = '/blog',
   BLOG_DETAIL = '/blog/:id',
   DIAGNOSIS = '/diagnosis',
   SOLUTION = '/solution',
   SOLUTION_DETAIL = '/solution/:id',
   DASHBOARD = '/dashboard',
-  ADMIN = '/admin',
-  // New User Center Routes
-  MY_VIDEOS = '/my-videos',
-  MY_ARTICLES = '/my-articles',
-  MY_NOTES = '/my-notes',
+  MY_VIDEOS = '/my/videos',
+  MY_ARTICLES = '/my/articles',
+  MY_NOTES = '/my/notes',
   SETTINGS = '/settings',
-  PLANS = '/plans'
+  PLANS = '/plans',
+  ADMIN = '/admin',
 }

@@ -1,6 +1,3 @@
-
-
-
 import { BlogPost, IntroVideo, DiagnosisIssue, BlogPostComment, CommentReply, User, AboutUsInfo, BusinessContactInfo, DiagnosisWidgetConfig, PlansPageConfig } from '../types';
 
 const STORAGE_KEY = 'captain_blog_posts';
@@ -218,6 +215,7 @@ const DEFAULT_COMMENTS: BlogPostComment[] = [
       {
         id: 'r1',
         userName: 'Captain AI',
+        userAvatar: 'https://i.pravatar.cc/150?u=captain',
         content: '感谢李总认可！专家岗（SME）不仅能留住人，还能有效沉淀组织经验。',
         date: '昨天',
         likes: 5,

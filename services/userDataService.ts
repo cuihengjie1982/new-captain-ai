@@ -269,7 +269,12 @@ export const getDiagnosisSubmissions = (): DiagnosisSubmission[] => {
 
 export const saveDiagnosisSubmission = (submission: DiagnosisSubmission): void => {
     const subs = getDiagnosisSubmissions();
-    subs.unshift(submission);
+    const idx = subs.findIndex(s => s.id === submission.id);
+    if (idx >= 0) {
+        subs[idx] = submission;
+    } else {
+        subs.unshift(submission);
+    }
     localStorage.setItem(DIAGNOSIS_SUBMISSIONS_KEY, JSON.stringify(subs));
 };
 

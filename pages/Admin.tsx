@@ -12,7 +12,7 @@ import { getBlogPosts, saveBlogPost, deleteBlogPost, getIntroVideo, saveIntroVid
 import { getLessons, saveLesson, deleteLesson } from '../services/courseService';
 import { getKnowledgeCategories, saveKnowledgeCategory, deleteKnowledgeCategory } from '../services/resourceService';
 import { getDashboardProjects, saveDashboardProject, deleteDashboardProject } from '../services/dashboardService';
-import { getUserUploads, deleteUserUpload, getAdminNotes, updateAdminNote, deleteAdminNote, updateUserUploadStatus, getAllUsers, saveUser, deleteUser, getEmailLogs, getBusinessLeads, deleteBusinessLead, getDiagnosisSubmissions, deleteDiagnosisSubmission, updateBusinessLeadStatus, getWatchedHistory, getReadHistory } from '../services/userDataService';
+import { getUserUploads, deleteUserUpload, getAdminNotes, updateAdminNote, deleteAdminNote, updateUserUploadStatus, getAllUsers, saveUser, deleteUser, getEmailLogs, getBusinessLeads, deleteBusinessLead, getDiagnosisSubmissions, deleteDiagnosisSubmission, saveDiagnosisSubmission, updateBusinessLeadStatus, getWatchedHistory, getReadHistory } from '../services/userDataService';
 import { getPermissionConfig, savePermissionConfig, getPermissionDefinitions, savePermissionDefinition, deletePermissionDefinition } from '../services/permissionService';
 
 // Specific AI Models for Video Transcript Generation
@@ -342,7 +342,6 @@ const Admin: React.FC = () => {
   const [userSubTab, setUserSubTab] = useState<'list' | 'plans' | 'permissions' | 'business'>('list');
   const [selectedUserForDetail, setSelectedUserForDetail] = useState<string | null>(null);
   const [plansConfig, setPlansConfig] = useState<PlansPageConfig | null>(null);
-  const [isEditingPlan, setIsEditingPlan] = useState(false);
   
   // Permission Data
   const [permissions, setPermissions] = useState<PermissionDefinition[]>([]);
@@ -1557,9 +1556,8 @@ const Admin: React.FC = () => {
     );
   };
 
-  // Define renderSolutionTab which was missing
   const renderSolutionTab = () => {
-      const filteredLessons = lessons.filter(l => (l.title || '').toLowerCase().includes((lessonSearchQuery || '').toLowerCase()) || (l.category || '').toLowerCase().includes((lessonSearchQuery || '').toLowerCase()));
+      const filteredLessons = lessons.filter(l => l.title.toLowerCase().includes(lessonSearchQuery.toLowerCase()) || l.category?.toLowerCase().includes(lessonSearchQuery.toLowerCase()));
 
       return (
           <div className="space-y-6 animate-in fade-in">

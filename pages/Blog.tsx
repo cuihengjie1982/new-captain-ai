@@ -120,7 +120,8 @@ const Blog: React.FC = () => {
         customIssue: selectedIssues.includes('other') ? customIssue : undefined,
         submittedAt: new Date().toLocaleString('zh-CN'),
         user: currentUser.name || 'Guest',
-        userId: currentUser.id
+        userId: currentUser.id,
+        status: 'new'
     });
 
     // Navigate to Diagnosis with state

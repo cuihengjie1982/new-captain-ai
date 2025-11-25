@@ -596,7 +596,18 @@ const Diagnosis: React.FC = () => {
           setShowPaymentGate(true);
           return;
       }
-      alert(`正在下载: ${label || fileName}`);
+      
+      // Simulate actual download behavior
+      const dummyContent = `[模拟文件内容]\n文件名: ${fileName}\n类型: ${label || '未知'}\n\n此文件由 Captain AI 模拟生成，用于演示下载功能。`;
+      const blob = new Blob([dummyContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(url), 100);
   };
 
   return (
@@ -981,7 +992,7 @@ const Diagnosis: React.FC = () => {
                                     ) : (
                                         <div 
                                             className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 border border-slate-200 transition-colors" 
-                                            onClick={() => handleDownload(activeSubmission.userReportFile, '我的报告')}
+                                            onClick={() => handleDownload(activeSubmission.userReportFile || 'user_report.xlsx', '我的报告')}
                                         >
                                             <FileCheck size={20} className="text-purple-600" />
                                             <div className="flex-1">

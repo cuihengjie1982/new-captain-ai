@@ -5,14 +5,14 @@ import {
   Upload, FileText, FileVideo, Image as ImageIcon, FileType, Loader2, CheckCircle,
   LayoutDashboard, Target, PieChart, BarChart3, Users, ClipboardList, File as FileIcon, Download,
   MonitorPlay, MessageSquare, BrainCircuit, Shield, ToggleLeft, ToggleRight, Sparkles, Quote, Link as LinkIcon, Tags, UserCog, Key, FileCheck, AlertTriangle, Activity, Zap, Import, ArrowUp, ArrowDown, Sigma, Divide, QrCode, Wallet, Building2, Globe, Mail, Clock, Crown, CreditCard, Phone, Smartphone, Lock, Layers, Briefcase, Calendar, Stethoscope, FileSpreadsheet, Presentation, FolderOpen, Check, Star, ArrowUpRight,
-  Square, CheckSquare, Filter, FileJson, Eye, List, BarChart2, Send, User as UserIcon, Search, MoreHorizontal, TrendingUp, PenTool, History
+  Square, CheckSquare, Filter, FileJson, Eye, List, BarChart2, Send, User as UserIcon, Search, MoreHorizontal, TrendingUp, PenTool, History, Paperclip, ChevronRight
 } from 'lucide-react';
 import { BlogPost, Lesson, KnowledgeCategory, KnowledgeItem, DashboardProject, UserUpload, AdminNote, IntroVideo, DiagnosisIssue, PermissionConfig, PermissionDefinition, PermissionKey, TranscriptLine, User, KPIItem, KPIRecord, AboutUsInfo, EmailLog, RiskDetailItem, BusinessContactInfo, BusinessLead, DiagnosisSubmission, DiagnosisWidgetConfig, KnowledgeSectionType, WatchedLesson, ReadArticle, PlansPageConfig, PlanFeature } from '../types';
 import { getBlogPosts, saveBlogPost, deleteBlogPost, getIntroVideo, saveIntroVideo, getDiagnosisIssues, saveDiagnosisIssue, deleteDiagnosisIssue, getPaymentQRCode, savePaymentQRCode, getAboutUsInfo, saveAboutUsInfo, getBusinessContactInfo, saveBusinessContactInfo, getDiagnosisWidgetConfig, saveDiagnosisWidgetConfig, getPlansPageConfig, savePlansPageConfig } from '../services/contentService';
 import { getLessons, saveLesson, deleteLesson } from '../services/courseService';
 import { getKnowledgeCategories, saveKnowledgeCategory, deleteKnowledgeCategory } from '../services/resourceService';
 import { getDashboardProjects, saveDashboardProject, deleteDashboardProject } from '../services/dashboardService';
-import { getUserUploads, deleteUserUpload, getAdminNotes, updateAdminNote, deleteAdminNote, updateUserUploadStatus, getAllUsers, saveUser, deleteUser, getEmailLogs, getBusinessLeads, deleteBusinessLead, getDiagnosisSubmissions, deleteDiagnosisSubmission, updateBusinessLeadStatus, getWatchedHistory, getReadHistory } from '../services/userDataService';
+import { getUserUploads, deleteUserUpload, getAdminNotes, updateAdminNote, deleteAdminNote, updateUserUploadStatus, getAllUsers, saveUser, deleteUser, getEmailLogs, getBusinessLeads, deleteBusinessLead, getDiagnosisSubmissions, saveDiagnosisSubmission, deleteDiagnosisSubmission, updateBusinessLeadStatus, getWatchedHistory, getReadHistory } from '../services/userDataService';
 import { getPermissionConfig, savePermissionConfig, getPermissionDefinitions, savePermissionDefinition, deletePermissionDefinition } from '../services/permissionService';
 import { createChatSession, sendMessageToAI } from '../services/geminiService';
 
@@ -307,6 +307,7 @@ const Admin: React.FC = () => {
   const [editingIssue, setEditingIssue] = useState<Partial<DiagnosisIssue>>({});
   const [isEditingIssue, setIsEditingIssue] = useState(false);
   const [diagnosisSubmissions, setDiagnosisSubmissions] = useState<DiagnosisSubmission[]>([]);
+  const [editingSubmission, setEditingSubmission] = useState<DiagnosisSubmission | null>(null);
 
   // Solution Data
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -640,6 +641,21 @@ const Admin: React.FC = () => {
       setBehaviorSelectedIds(newSet);
   };
 
+  // Helper to save submission updates
+  const handleUpdateSubmissionField = (field: keyof DiagnosisSubmission, value: any) => {
+      if (!editingSubmission) return;
+      setEditingSubmission({ ...editingSubmission, [field]: value });
+  };
+
+  const handleSaveExpertResponse = (newStatus: DiagnosisSubmission['status']) => {
+      if (!editingSubmission) return;
+      const updated = { ...editingSubmission, status: newStatus };
+      saveDiagnosisSubmission(updated);
+      setDiagnosisSubmissions(getDiagnosisSubmissions()); // Refresh list
+      setEditingSubmission(updated); // Update local view
+      alert('提交成功');
+  };
+
   const renderDashboardTab = () => {
     return (
       <div className="space-y-6 animate-in fade-in">
@@ -852,7 +868,7 @@ const Admin: React.FC = () => {
                    <div className="text-slate-400 flex flex-col items-center">
                         <Video size={48} className="mb-2 opacity-20" />
                         <span className="text-xs font-medium">视频预览区域</span>
-                        <span className="text-[10px] mt-1">配置 URL 或上传视频后在此预览</span>
+                        <span className="text-xs font-medium">配置 URL 或上传视频后在此预览</span>
                    </div>
                )}
            </div>
@@ -951,6 +967,61 @@ const Admin: React.FC = () => {
 
   const renderDiagnosisTab = () => (
     <div className="space-y-8 animate-in fade-in">
+        {/* Expert Diagnosis Management Section */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-8">
+            <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2"><ClipboardList size={20} /> 专家人工诊断管理</h3>
+            </div>
+            <div className="max-h-96 overflow-y-auto">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-slate-500 sticky top-0">
+                        <tr>
+                            <th className="p-4">提交时间</th>
+                            <th className="p-4">用户</th>
+                            <th className="p-4">状态</th>
+                            <th className="p-4">当前阶段</th>
+                            <th className="p-4 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {diagnosisSubmissions.map(sub => (
+                            <tr key={sub.id} className="hover:bg-slate-50">
+                                <td className="p-4 text-slate-500 font-mono text-xs">{sub.submittedAt}</td>
+                                <td className="p-4 font-bold text-slate-800">{sub.user}</td>
+                                <td className="p-4">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold border ${
+                                        sub.status === 'new' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                                        sub.status === 'preliminary_provided' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
+                                        sub.status === 'report_submitted' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+                                        'bg-green-50 text-green-700 border-green-100'
+                                    }`}>
+                                        {sub.status === 'new' ? '待专家回复' :
+                                         sub.status === 'preliminary_provided' ? '待用户反馈' :
+                                         sub.status === 'report_submitted' ? '用户已反馈' : '诊断完成'}
+                                    </span>
+                                </td>
+                                <td className="p-4 text-xs text-slate-500">
+                                    {sub.status === 'new' ? '步骤 1: 初步分析' :
+                                     sub.status === 'preliminary_provided' ? '步骤 2: 等待补充' :
+                                     sub.status === 'report_submitted' ? '步骤 3: 最终方案' : '步骤 4: 结案'}
+                                </td>
+                                <td className="p-4 text-right flex justify-end gap-2">
+                                    <button 
+                                        onClick={() => setEditingSubmission(sub)}
+                                        className="bg-slate-900 text-white px-3 py-1 rounded text-xs font-bold hover:bg-black transition-colors"
+                                    >
+                                        处理工单
+                                    </button>
+                                    <button onClick={() => { if(window.confirm('删除此记录?')) { deleteDiagnosisSubmission(sub.id); setDiagnosisSubmissions(getDiagnosisSubmissions()); } }} className="text-slate-400 hover:text-red-600 p-1"><Trash2 size={16} /></button>
+                                </td>
+                            </tr>
+                        ))}
+                        {diagnosisSubmissions.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-400">暂无提交记录</td></tr>}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         {/* Widget Configuration */}
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Settings size={20} /> 博客页诊断组件配置</h3>
@@ -993,41 +1064,7 @@ const Admin: React.FC = () => {
             </table>
         </div>
 
-        {/* Submissions Log */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-200 bg-slate-50">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2"><ClipboardList size={20} /> 用户提交记录</h3>
-            </div>
-            <div className="max-h-96 overflow-y-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 text-slate-500 sticky top-0">
-                        <tr>
-                            <th className="p-4">提交时间</th>
-                            <th className="p-4">用户</th>
-                            <th className="p-4">选择问题</th>
-                            <th className="p-4">自定义补充</th>
-                            <th className="p-4 text-right">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {diagnosisSubmissions.map(sub => (
-                            <tr key={sub.id} className="hover:bg-slate-50">
-                                <td className="p-4 text-slate-500 font-mono text-xs">{sub.submittedAt}</td>
-                                <td className="p-4 font-bold text-slate-800">{sub.user}</td>
-                                <td className="p-4 text-slate-600">{sub.selectedIssues.join(', ')}</td>
-                                <td className="p-4 text-slate-600 italic">{sub.customIssue || '-'}</td>
-                                <td className="p-4 text-right">
-                                    <button onClick={() => { if(window.confirm('删除此记录?')) { deleteDiagnosisSubmission(sub.id); setDiagnosisSubmissions(getDiagnosisSubmissions()); } }} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
-                                </td>
-                            </tr>
-                        ))}
-                        {diagnosisSubmissions.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-400">暂无提交记录</td></tr>}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        {/* Edit Modal */}
+        {/* Edit Diagnosis Issue Modal */}
         {isEditingIssue && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-xl w-full max-w-lg p-6 animate-in zoom-in-95 relative">
@@ -1039,6 +1076,190 @@ const Admin: React.FC = () => {
                         <div><label className="block text-xs font-bold text-slate-500 mb-1">AI 初始回复 (第一条回复)</label><textarea className="w-full border p-2 rounded text-sm h-24" value={editingIssue.aiResponse || ''} onChange={e => setEditingIssue({...editingIssue, aiResponse: e.target.value})} /></div>
                         <div className="pt-2 flex justify-end">
                             <button onClick={handleSaveDiagnosisIssue} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700">保存</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Expert Diagnosis Management Modal */}
+        {editingSubmission && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-in fade-in">
+                <div className="bg-white rounded-xl w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 overflow-hidden">
+                    {/* Header */}
+                    <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white shrink-0">
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                <Stethoscope size={22} className="text-blue-600" /> 专家诊断工单
+                            </h3>
+                            <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                                <span>工单 ID: {editingSubmission.id}</span>
+                                <span>•</span>
+                                <span>用户: {editingSubmission.user}</span>
+                                <span>•</span>
+                                <span className={`font-bold ${editingSubmission.status === 'new' ? 'text-blue-600' : 'text-green-600'}`}>
+                                    {editingSubmission.status === 'new' ? '待回复' : editingSubmission.status}
+                                </span>
+                            </div>
+                        </div>
+                        <button onClick={() => setEditingSubmission(null)} className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><X size={24} /></button>
+                    </div>
+
+                    {/* Content - Vertical Timeline */}
+                    <div className="flex-1 overflow-y-auto p-8 bg-slate-50">
+                        <div className="max-w-3xl mx-auto space-y-8 relative">
+                            {/* Vertical Line */}
+                            <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-slate-200"></div>
+
+                            {/* Step 1: User Request */}
+                            <div className="relative pl-12">
+                                <div className="absolute left-0 top-0 w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center shadow-sm z-10">
+                                    <UserIcon size={16} className="text-slate-600" />
+                                </div>
+                                <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <h4 className="font-bold text-slate-800">用户提交问题</h4>
+                                        <span className="text-xs text-slate-400">{editingSubmission.submittedAt}</span>
+                                    </div>
+                                    <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100 mb-4">
+                                        {editingSubmission.problemDescription}
+                                    </p>
+                                    {editingSubmission.initialFiles && editingSubmission.initialFiles.length > 0 && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {editingSubmission.initialFiles.map((f, i) => (
+                                                <div key={i} className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-100">
+                                                    <Paperclip size={12} /> {f}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Step 2: Expert Preliminary Reply */}
+                            <div className="relative pl-12">
+                                <div className={`absolute left-0 top-0 w-8 h-8 rounded-full border-2 border-white flex items-center justify-center shadow-sm z-10 ${editingSubmission.status === 'new' ? 'bg-blue-600 text-white animate-pulse' : 'bg-blue-100 text-blue-600'}`}>
+                                    <Bot size={16} />
+                                </div>
+                                <div className={`rounded-xl border p-5 shadow-sm transition-all ${editingSubmission.status === 'new' ? 'bg-white border-blue-300 ring-4 ring-blue-50' : 'bg-slate-50 border-slate-200'}`}>
+                                    <h4 className="font-bold text-slate-800 mb-3">专家初步回复与模板提供</h4>
+                                    
+                                    {editingSubmission.status === 'new' ? (
+                                        <div className="space-y-4">
+                                            <textarea 
+                                                className="w-full border border-slate-300 rounded-lg p-3 text-sm h-32 focus:ring-2 focus:ring-blue-500 outline-none"
+                                                placeholder="请输入初步诊断建议，并指导用户填写模板..."
+                                                value={editingSubmission.expertPreliminaryReply || ''}
+                                                onChange={(e) => handleUpdateSubmissionField('expertPreliminaryReply', e.target.value)}
+                                            />
+                                            <div className="flex items-center gap-3">
+                                                <label className="flex items-center gap-2 px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-200 transition-colors">
+                                                    <Paperclip size={14} /> 上传诊断模版
+                                                    <input type="file" className="hidden" onChange={(e) => handleFileNameUpload(e, (name) => handleUpdateSubmissionField('templateFile', name))} />
+                                                </label>
+                                                <span className="text-xs text-slate-500">{editingSubmission.templateFile || '未选择文件'}</span>
+                                            </div>
+                                            <div className="flex justify-end">
+                                                <button 
+                                                    onClick={() => handleSaveExpertResponse('preliminary_provided')}
+                                                    disabled={!editingSubmission.expertPreliminaryReply}
+                                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                                                >
+                                                    <Send size={14} /> 发送初步建议
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <p className="text-sm text-slate-700 leading-relaxed mb-3">{editingSubmission.expertPreliminaryReply}</p>
+                                            {editingSubmission.templateFile && (
+                                                <div className="flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 w-fit">
+                                                    <FileIcon size={12} /> 已发送模版: {editingSubmission.templateFile}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Step 3: User Report Upload */}
+                            <div className="relative pl-12">
+                                <div className={`absolute left-0 top-0 w-8 h-8 rounded-full border-2 border-white flex items-center justify-center shadow-sm z-10 ${editingSubmission.status === 'preliminary_provided' ? 'bg-orange-100 text-orange-600' : editingSubmission.status === 'new' ? 'bg-slate-100 text-slate-300' : 'bg-slate-200 text-slate-600'}`}>
+                                    <UserIcon size={16} />
+                                </div>
+                                <div className={`rounded-xl border p-5 shadow-sm ${editingSubmission.status === 'preliminary_provided' ? 'bg-orange-50/50 border-orange-200' : 'bg-white border-slate-200'}`}>
+                                    <h4 className="font-bold text-slate-800 mb-3">用户反馈与报告上传</h4>
+                                    
+                                    {['new', 'preliminary_provided'].includes(editingSubmission.status) ? (
+                                        <div className="text-center py-6 text-slate-400 text-sm italic border-2 border-dashed border-slate-200 rounded-lg">
+                                            {editingSubmission.status === 'new' ? '等待专家初步回复...' : '等待用户提交报告...'}
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100 mb-3">
+                                                {editingSubmission.userReportDescription}
+                                            </p>
+                                            {editingSubmission.userReportFile && (
+                                                <div className="flex items-center gap-1 text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded border border-purple-100 w-fit">
+                                                    <FileSpreadsheet size={12} /> 用户报告: {editingSubmission.userReportFile}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Step 4: Final Solution */}
+                            <div className="relative pl-12">
+                                <div className={`absolute left-0 top-0 w-8 h-8 rounded-full border-2 border-white flex items-center justify-center shadow-sm z-10 ${editingSubmission.status === 'report_submitted' ? 'bg-green-600 text-white animate-pulse' : 'bg-green-100 text-green-600'}`}>
+                                    <CheckCircle size={16} />
+                                </div>
+                                <div className={`rounded-xl border p-5 shadow-sm transition-all ${editingSubmission.status === 'report_submitted' ? 'bg-white border-green-300 ring-4 ring-green-50' : 'bg-slate-50 border-slate-200'}`}>
+                                    <h4 className="font-bold text-slate-800 mb-3">专家最终诊断方案</h4>
+                                    
+                                    {editingSubmission.status === 'report_submitted' ? (
+                                        <div className="space-y-4">
+                                            <textarea 
+                                                className="w-full border border-slate-300 rounded-lg p-3 text-sm h-40 focus:ring-2 focus:ring-green-500 outline-none"
+                                                placeholder="请输入最终诊断结论和建议..."
+                                                value={editingSubmission.expertFinalReply || ''}
+                                                onChange={(e) => handleUpdateSubmissionField('expertFinalReply', e.target.value)}
+                                            />
+                                            <div className="flex items-center gap-3">
+                                                <label className="flex items-center gap-2 px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-200 transition-colors">
+                                                    <Paperclip size={14} /> 上传最终方案报告
+                                                    <input type="file" className="hidden" onChange={(e) => handleFileNameUpload(e, (name) => handleUpdateSubmissionField('expertFinalFile', name))} />
+                                                </label>
+                                                <span className="text-xs text-slate-500">{editingSubmission.expertFinalFile || '未选择文件'}</span>
+                                            </div>
+                                            <div className="flex justify-end">
+                                                <button 
+                                                    onClick={() => handleSaveExpertResponse('final_provided')}
+                                                    disabled={!editingSubmission.expertFinalReply}
+                                                    className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                                                >
+                                                    <CheckCircle size={14} /> 完成诊断并发送
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : editingSubmission.status === 'final_provided' ? (
+                                        <div>
+                                            <p className="text-sm text-slate-700 leading-relaxed mb-3">{editingSubmission.expertFinalReply}</p>
+                                            {editingSubmission.expertFinalFile && (
+                                                <div className="flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 w-fit">
+                                                    <FileText size={12} /> 最终方案: {editingSubmission.expertFinalFile}
+                                                </div>
+                                            )}
+                                            <div className="mt-4 text-xs text-slate-400 flex items-center gap-1">
+                                                <Check size={12} /> 工单已归档
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-slate-400 text-sm italic">等待前序步骤完成...</div>
+                                    )}
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>

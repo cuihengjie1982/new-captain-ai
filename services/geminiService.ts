@@ -1,7 +1,7 @@
 import { GoogleGenAI, Chat } from "@google/genai";
 
 // Initialize the client only if the key is present
-const getApiKey = () => process.env.API_KEY;
+const getApiKey = () => process.env.API_KEY || process.env.GEMINI_API_KEY;
 
 // Check if the key is likely a DeepSeek or OpenAI compatible key
 const isDeepSeekKey = (key: string) => key.startsWith('sk-');

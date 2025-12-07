@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Captain AI",
+  "description": "呼叫中心经理的AI智能副驾，帮助诊断运营问题，获取结构化方案并追踪成果。",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

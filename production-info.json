@@ -1,0 +1,15 @@
+{
+  "buildTime": "2025年12月 7日 星期日 15时01分47秒 CST",
+  "environment": "production",
+  "apiConfig": {
+    "tingwuAppKey": "eNnot8DLOV3RpOut",
+    "deepseekApiKey": "sk-5eeca5c4321b4562bb3a58ae77751721",
+    "qwenApiKey": "sk-be0085afc5fd46c293ffb040b7cac8d9"
+  },
+  "features": {
+    "realTimeTranscription": true,
+    "aiAnalysis": true,
+    "videoProcessing": true,
+    "databaseIntegration": true
+  }
+}
